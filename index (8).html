@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActivityTrack — M&E Implementation Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0D2B4E; --navy-light:#163c6e; --blue:#1CABE2; --blue-light:#4dc2ec;
+  --blue-bg:#e8f6fc; --green:#2ECC71; --green-bg:#eafaf1;
+  --amber:#F39C12; --amber-bg:#fef9e7; --red:#E74C3C; --red-bg:#fdedec;
+  --purple:#8B5CF6; --purple-bg:#f5f3ff;
+  --gray-100:#f8f9fb; --gray-200:#eef0f5; --gray-300:#d5d9e4;
+  --gray-500:#8492a6; --gray-700:#4a5568; --gray-900:#1a202c; --white:#ffffff;
+  --sidebar-w:268px; --sidebar-collapsed:72px; --topbar-h:60px;
+  --radius:10px; --radius-sm:6px;
+  --shadow:0 2px 12px rgba(13,43,78,0.08); --shadow-lg:0 8px 32px rgba(13,43,78,0.14);
+  --transition:all 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito Sans',sans-serif;background:var(--gray-100);color:var(--gray-900);display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* SIDEBAR */
+#sidebar{width:var(--sidebar-w);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:width .25s ease;overflow:hidden}
+#sidebar.collapsed{width:var(--sidebar-collapsed)}
+.sidebar-header{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;min-height:var(--topbar-h)}
+.sidebar-logo{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:white;flex-shrink:0}
+.sidebar-title{font-size:16px;font-weight:800;color:white;white-space:nowrap;letter-spacing:-.3px}
+.sidebar-subtitle{font-size:10px;color:rgba(255,255,255,.45);white-space:nowrap;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.sidebar-toggle{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;padding:4px;font-size:18px;flex-shrink:0}
+.sidebar-toggle:hover{color:white}
+.sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
+.nav-section{padding:14px 16px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+#sidebar.collapsed .nav-section{opacity:0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 16px;color:rgba(255,255,255,.65);cursor:pointer;white-space:nowrap;border-left:3px solid transparent;font-weight:600;transition:var(--transition)}
+.nav-item:hover{background:rgba(255,255,255,.06);color:white}
+.nav-item.active{background:rgba(28,171,226,.15);color:var(--blue-light);border-left-color:var(--blue)}
+.nav-icon{font-size:17px;flex-shrink:0;width:20px;text-align:center}
+.nav-label{font-size:13.5px}
+#sidebar.collapsed .nav-label{opacity:0;width:0;overflow:hidden}
+.sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.sidebar-user{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 0}
+.sidebar-avatar{width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0}
+.sidebar-username{font-size:13px;color:white;font-weight:600;white-space:nowrap}
+.sidebar-userrole{font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
+#sidebar.collapsed .sidebar-username,#sidebar.collapsed .sidebar-userrole{display:none}
+
+/* MAIN */
+#main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s ease}
+#main.collapsed{margin-left:var(--sidebar-collapsed)}
+
+/* TOPBAR */
+#topbar{height:var(--topbar-h);background:var(--white);border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:90;box-shadow:0 1px 4px rgba(13,43,78,.06)}
+.topbar-breadcrumb{font-size:13px;color:var(--gray-500);font-weight:600}
+.topbar-page-title{font-size:17px;font-weight:800;color:var(--navy)}
+.topbar-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+
+#content{flex:1;padding:28px;max-width:1400px}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--gray-200)}
+.card-header{padding:18px 22px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px}
+.card-title{font-size:15px;font-weight:800;color:var(--navy)}
+.card-subtitle{font-size:12px;color:var(--gray-500);margin-left:auto}
+.card-body{padding:22px}
+.card-footer{padding:14px 22px;border-top:1px solid var(--gray-200);background:var(--gray-100);border-radius:0 0 var(--radius) var(--radius)}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:24px}
+.kpi-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--gray-200);padding:20px 22px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.blue::before{background:var(--blue)}
+.kpi-card.green::before{background:var(--green)}
+.kpi-card.amber::before{background:var(--amber)}
+.kpi-card.red::before{background:var(--red)}
+.kpi-card.navy::before{background:var(--navy)}
+.kpi-card.purple::before{background:var(--purple)}
+.kpi-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px}
+.kpi-card.blue .kpi-icon{background:var(--blue-bg)}
+.kpi-card.green .kpi-icon{background:var(--green-bg)}
+.kpi-card.amber .kpi-icon{background:var(--amber-bg)}
+.kpi-card.red .kpi-icon{background:var(--red-bg)}
+.kpi-card.navy .kpi-icon{background:#e8eef6}
+.kpi-card.purple .kpi-icon{background:var(--purple-bg)}
+.kpi-value{font-size:28px;font-weight:800;color:var(--navy);line-height:1;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+.kpi-label{font-size:11px;color:var(--gray-500);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.kpi-sub{font-size:12px;color:var(--gray-500);margin-top:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:var(--transition);text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--blue);color:white}.btn-primary:hover{background:#1598c9}
+.btn-secondary{background:var(--navy);color:white}.btn-secondary:hover{background:var(--navy-light)}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--gray-300)}.btn-outline:hover{background:var(--gray-100);border-color:var(--navy)}
+.btn-danger{background:var(--red);color:white}.btn-danger:hover{background:#c0392b}
+.btn-success{background:var(--green);color:white}.btn-success:hover{background:#27ae60}
+.btn-purple{background:var(--purple);color:white}.btn-purple:hover{background:#7c3aed}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:4px}
+.btn-icon{padding:8px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.badge-not-started{background:var(--gray-200);color:var(--gray-700)}
+.badge-planned{background:var(--blue-bg);color:#0d7cb0}
+.badge-in-progress{background:var(--amber-bg);color:#9a6700}
+.badge-completed{background:var(--green-bg);color:#1a8a4e}
+.badge-delayed{background:var(--red-bg);color:#a93226}
+.badge-active{background:var(--blue-bg);color:#0d7cb0}
+.badge-closed{background:var(--gray-200);color:var(--gray-700)}
+.badge-admin{background:#f0e6ff;color:#6d28d9}
+
+/* TABLES */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--gray-100)}
+th{padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--gray-200);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--gray-200);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f5f7ff}
+.td-code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--navy);font-weight:500}
+.td-desc{max-width:320px}
+.td-desc small{display:block;color:var(--gray-500);margin-top:2px;font-size:11px}
+
+/* SUB-ACTIVITY ROWS */
+.subact-table-row td{background:#fafbff;padding:9px 14px}
+.subact-table-row:hover td{background:#f0f4ff}
+.subact-indent{padding-left:28px!important}
+
+/* PROGRESS BAR */
+.progress-bar{background:var(--gray-200);border-radius:20px;height:8px;overflow:hidden}
+.progress-fill{height:100%;border-radius:20px;background:var(--blue);transition:width .4s ease}
+.progress-fill.green{background:var(--green)}
+.progress-fill.amber{background:var(--amber)}
+.progress-fill.red{background:var(--red)}
+.progress-fill.purple{background:var(--purple)}
+
+/* FORMS */
+.form-group{margin-bottom:18px}
+.form-label{display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:.4px}
+.form-control{width:100%;padding:10px 14px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;color:var(--gray-900);background:var(--white);transition:var(--transition)}
+.form-control:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,171,226,.12)}
+.form-control:disabled{background:var(--gray-100);color:var(--gray-500)}
+select.form-control{cursor:pointer}
+textarea.form-control{resize:vertical;min-height:90px}
+.form-hint{font-size:11px;color:var(--gray-500);margin-top:4px}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(13,43,78,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:white;border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:640px;max-height:90vh;overflow-y:auto;animation:slideUp .25s ease}
+.modal-lg{max-width:900px}
+@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:22px 26px 18px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px}
+.modal-title{font-size:17px;font-weight:800;color:var(--navy)}
+.modal-close{margin-left:auto;background:none;border:none;font-size:22px;color:var(--gray-500);cursor:pointer;line-height:1;padding:2px}
+.modal-close:hover{color:var(--red)}
+.modal-body{padding:24px 26px}
+.modal-footer{padding:16px 26px;border-top:1px solid var(--gray-200);display:flex;gap:10px;justify-content:flex-end}
+
+/* QUARTER GRID */
+.quarter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.quarter-cell{border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);padding:8px 10px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;transition:var(--transition);background:white}
+.quarter-cell.planned{background:var(--blue-bg);border-color:var(--blue);color:#0d7cb0}
+.quarter-cell.in-progress{background:var(--amber-bg);border-color:var(--amber);color:#9a6700}
+.quarter-cell.completed{background:var(--green-bg);border-color:var(--green);color:#1a8a4e}
+.quarter-cell.delayed{background:var(--red-bg);border-color:var(--red);color:#a93226}
+.quarter-cell.not-marked{background:var(--gray-100);border-color:var(--gray-300);color:var(--gray-500)}
+.quarter-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-bottom:24px}
+.tab{padding:10px 20px;font-size:13px;font-weight:700;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:var(--transition)}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.search-box{position:relative;flex:1;min-width:200px}
+.search-box input{width:100%;padding:9px 14px 9px 36px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-family:inherit;font-size:13px}
+.search-box input:focus{outline:none;border-color:var(--blue)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-500);pointer-events:none}
+.filter-select{padding:9px 14px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;color:var(--gray-700);background:white;cursor:pointer}
+
+/* OUTPUT ACCORDION */
+.output-block{border:1px solid var(--gray-200);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.output-block.is-admin{border-color:#e0d4ff;opacity:.6}
+.output-block.is-admin .output-header{background:#f9f6ff}
+.output-header{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--gray-100);cursor:pointer;border-bottom:1px solid var(--gray-200);user-select:none}
+.output-header:hover{background:#eef2ff}
+.output-code{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;background:var(--navy);color:white;padding:3px 8px;border-radius:4px;flex-shrink:0}
+.output-code.admin-tag{background:#8B5CF6}
+.output-desc{font-size:13px;font-weight:700;color:var(--navy);flex:1;line-height:1.3}
+.output-toggle{color:var(--gray-500);font-size:16px;flex-shrink:0;transition:transform .2s}
+.output-block.open .output-toggle{transform:rotate(180deg)}
+.output-activities{display:none;padding:4px 0}
+.output-block.open .output-activities{display:block}
+
+/* ACTIVITY ROW */
+.activity-row{display:flex;align-items:flex-start;gap:12px;padding:12px 18px;border-bottom:1px solid var(--gray-200);transition:background .15s}
+.activity-row:last-child{border-bottom:none}
+.activity-row:hover{background:#f5f7ff}
+.activity-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gray-500);min-width:60px;padding-top:2px;font-weight:600}
+.activity-desc{flex:1;font-size:13px;color:var(--gray-700);line-height:1.4}
+.activity-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+/* SUB-ACTIVITY PANEL */
+.subact-panel{background:#f8f9ff;border-top:1px solid #e5e9f8;padding:0}
+.subact-header{display:flex;align-items:center;justify-content:space-between;padding:8px 18px 8px 36px;font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #eaecf8}
+.subact-row{display:flex;align-items:center;gap:10px;padding:9px 18px 9px 36px;border-bottom:1px solid #eaecf8;font-size:13px}
+.subact-row:last-child{border-bottom:none}
+.subact-row:hover{background:#f0f3ff}
+.subact-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);font-weight:600;min-width:60px}
+.subact-desc{flex:1;color:var(--gray-700)}
+.subact-cat{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700;background:var(--gray-200);color:var(--gray-700)}
+.subact-cat.Labour{background:#fef9e7;color:#9a6700}
+.subact-cat.Materials{background:#e8f6fc;color:#0d7cb0}
+.subact-cat.Transport{background:#eafaf1;color:#1a8a4e}
+.subact-cat.Venue{background:#f5f3ff;color:#6d28d9}
+.subact-cat.Other{background:var(--gray-200);color:var(--gray-700)}
+.subact-budget{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gray-700);min-width:90px;text-align:right}
+.subact-spent{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);min-width:90px;text-align:right}
+.subact-spent.over{color:var(--red)}
+.subact-pct{font-size:11px;font-weight:700;color:var(--gray-500);min-width:36px;text-align:right}
+.subact-status{min-width:100px}
+.add-subact-row{padding:8px 18px 8px 36px;display:flex;align-items:center;gap:8px}
+
+/* BUDGET BREAKDOWN */
+.budget-section-title{font-size:13px;font-weight:800;color:var(--navy);padding:12px 0 8px;border-bottom:1px solid var(--gray-200);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.budget-section-title .admin-pill{font-size:11px;font-weight:600;background:#f0e6ff;color:#6d28d9;padding:2px 8px;border-radius:10px}
+.budget-excluded{opacity:.5;font-size:12px;color:var(--gray-500);font-style:italic}
+.budget-bar-wrap{display:flex;align-items:center;gap:10px}
+.budget-bar-wrap .progress-bar{flex:1}
+
+/* SPEND INDICATOR */
+.spend-label{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
+.spend-label.ok{background:var(--green-bg);color:#1a8a4e}
+.spend-label.warn{background:var(--amber-bg);color:#9a6700}
+.spend-label.over{background:var(--red-bg);color:#a93226}
+.spend-label.none{background:var(--gray-200);color:var(--gray-500)}
+
+/* NOTIFICATIONS */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--navy);color:white;padding:12px 18px;border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);font-size:13px;font-weight:600;max-width:320px;animation:slideLeft .3s ease}
+@keyframes slideLeft{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+.toast.warning{background:var(--amber);color:#1a1a1a}
+
+/* SYNC */
+.sync-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-500);font-weight:600}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-300)}
+.sync-dot.synced{background:var(--green)}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.offline{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* SETUP */
+.setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);padding:24px}
+.setup-box{background:white;border-radius:16px;padding:40px;width:100%;max-width:480px;box-shadow:var(--shadow-lg);text-align:center}
+.setup-logo{width:64px;height:64px;background:var(--blue);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:white}
+.setup-title{font-size:24px;font-weight:900;color:var(--navy);margin-bottom:6px}
+.setup-sub{font-size:14px;color:var(--gray-500);margin-bottom:28px;line-height:1.5}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:56px 24px}
+.empty-icon{font-size:48px;margin-bottom:16px}
+.empty-title{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--gray-500);margin-bottom:20px}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:22px;font-weight:900;color:var(--navy)}
+.page-sub{font-size:13px;color:var(--gray-500);margin-top:2px}
+.page-actions{display:flex;gap:10px;align-items:center}
+
+/* GRIDS */
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.col-span-2{grid-column:span 2}
+
+/* PROJECT CARD */
+.project-card{background:white;border-radius:var(--radius);border:1px solid var(--gray-200);box-shadow:var(--shadow);padding:22px;cursor:pointer;transition:var(--transition)}
+.project-card:hover{box-shadow:var(--shadow-lg);border-color:var(--blue);transform:translateY(-1px)}
+.project-funder{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--blue);margin-bottom:10px}
+.project-name{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px;line-height:1.3}
+.project-partner{font-size:12px;color:var(--gray-500);margin-bottom:14px}
+.project-progress-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px}
+.project-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.project-meta-item{font-size:11px;color:var(--gray-500)}
+.project-meta-item strong{display:block;color:var(--gray-900);font-size:13px;font-family:'JetBrains Mono',monospace}
+
+/* MISC */
+.divider{height:1px;background:var(--gray-200);margin:20px 0}
+.text-right{text-align:right}.text-center{text-align:center}.text-muted{color:var(--gray-500)}
+.text-small{font-size:12px}.font-mono{font-family:'JetBrains Mono',monospace}.fw-bold{font-weight:700}
+.mt-8{margin-top:8px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+.mb-8{margin-bottom:8px}.mb-16{margin-bottom:16px}.mb-24{margin-bottom:24px}
+.flex{display:flex}.flex-center{display:flex;align-items:center}.flex-between{display:flex;align-items:center;justify-content:space-between}
+.gap-8{gap:8px}.gap-12{gap:12px}.gap-16{gap:16px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--gray-200);color:var(--gray-700)}
+.settings-section{background:white;border-radius:var(--radius);border:1px solid var(--gray-200);margin-bottom:20px}
+.settings-section-title{padding:16px 22px;font-size:14px;font-weight:800;color:var(--navy);border-bottom:1px solid var(--gray-200)}
+.settings-row{padding:16px 22px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:16px}
+.settings-row:last-child{border-bottom:none}
+.settings-label{flex:1}.settings-label strong{display:block;font-size:13px;color:var(--gray-900)}
+.settings-label span{font-size:12px;color:var(--gray-500)}
+
+/* NOTICE BANNER */
+.admin-notice{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:var(--radius-sm);padding:12px 16px;font-size:12px;color:#5b21b6;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" style="display:none">
+  <div class="setup-screen">
+    <div class="setup-box">
+      <div class="setup-logo">AT</div>
+      <div class="setup-title">ActivityTrack</div>
+      <div class="setup-sub">M&E Implementation Monitor<br>Connect your Google Sheets backend to get started.</div>
+      <div class="form-group" style="text-align:left"><label class="form-label">Your Name</label><input type="text" id="setup-name" class="form-control" placeholder="e.g. Mono Taban"></div>
+      <div class="form-group" style="text-align:left"><label class="form-label">Your Organization</label><input type="text" id="setup-org" class="form-control" placeholder="e.g. Eye Media Group"></div>
+      <div class="form-group" style="text-align:left"><label class="form-label">Your Role</label><select id="setup-role" class="form-control"><option value="admin">Admin / M&E Officer</option><option value="reporter">Field Reporter</option><option value="viewer">Viewer</option></select></div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Google Apps Script URL <span style="color:var(--gray-500);font-size:11px">(optional — skip for demo data)</span></label>
+        <input type="url" id="setup-url" class="form-control" placeholder="https://script.google.com/macros/s/...">
+        <div class="form-hint">Leave blank to explore with demo data.</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="completeSetup()">🚀 Launch ActivityTrack</button>
+      <p style="font-size:11px;color:var(--gray-500);margin-top:16px">Eye Media Group · UNICEF South Sudan</p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;width:100%">
+
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">AT</div>
+    <div><div class="sidebar-title">ActivityTrack</div><div class="sidebar-subtitle">M&E Monitor</div></div>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">⇆</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="navigate('dashboard')"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></div>
+    <div class="nav-section">Projects</div>
+    <div class="nav-item" onclick="navigate('projects')"><span class="nav-icon">📁</span><span class="nav-label">All Projects</span></div>
+    <div class="nav-item" onclick="navigate('activities')"><span class="nav-icon">✅</span><span class="nav-label">Activity Tracker</span></div>
+    <div class="nav-item" onclick="navigate('progress')"><span class="nav-icon">📝</span><span class="nav-label">Progress Log</span></div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item" onclick="navigate('budget')"><span class="nav-icon">💰</span><span class="nav-label">Budget Tracker</span></div>
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" onclick="navigate('reports')"><span class="nav-icon">📄</span><span class="nav-label">Reports</span></div>
+    <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="navigate('users')"><span class="nav-icon">👥</span><span class="nav-label">Users</span></div>
+    <div class="nav-item" onclick="navigate('settings')"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user" onclick="navigate('settings')">
+      <div class="sidebar-avatar" id="user-avatar">M</div>
+      <div><div class="sidebar-username" id="user-name-display">Loading...</div><div class="sidebar-userrole" id="user-role-display">M&E Officer</div></div>
+    </div>
+  </div>
+</nav>
+
+<div id="main">
+  <div id="topbar">
+    <div><div class="topbar-breadcrumb" id="topbar-breadcrumb">Overview</div><div class="topbar-page-title" id="topbar-title">Dashboard</div></div>
+    <div class="topbar-actions">
+      <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Local</span></div>
+      <button class="btn btn-outline btn-sm" onclick="syncData()">🔄 Sync</button>
+      <button class="btn btn-primary btn-sm" id="topbar-action-btn" onclick="handleTopAction()">+ New Project</button>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+/* ================================================================
+   STATE
+================================================================ */
+const App = {
+  user: null, scriptUrl: '', currentView: 'dashboard',
+  navParams: {}, db: null,
+  data: { projects:[], outputs:[], activities:[], subActivities:[], progress:[], users:[] }
+};
+
+/* ================================================================
+   CONSTANTS
+================================================================ */
+const ADMIN_OUTPUT_KEYWORDS = ['programme management','program management','effective and efficient','hq support','overhead','security risk management'];
+const SUB_CATEGORIES = ['Labour','Materials','Transport','Venue','Other'];
+
+function isAdminOutput(output) {
+  if (!output) return false;
+  if (output.is_admin) return true;
+  const desc = (output.description || output.output_code || '').toLowerCase();
+  return ADMIN_OUTPUT_KEYWORDS.some(k => desc.includes(k));
+}
+
+/* ================================================================
+   DEMO DATA — Eye Media / UNICEF 2025-2026
+================================================================ */
+const DEMO = {
+  projects: [
+    { id:'p001', name:'Integrated Community Communication for Lifesaving Behaviour Change',
+      funder:'UNICEF South Sudan', partner:'Eye Media Group', ref_number:'PD-SS-2025-EM-001',
+      sector:'Communication for Development', start_date:'2025-09-01', end_date:'2026-08-31',
+      total_budget:825081.50, unicef_budget:618321.50, cso_budget:206760, status:'active', currency:'USD',
+      created_at: new Date().toISOString() }
+  ],
+  outputs: [
+    { id:'o001', project_id:'p001', output_code:'Output 1', is_admin:false, description:'Communities have increased access to integrated information (Health, Nutrition, WASH, Child Protection, Education and Emergency) on positive behaviors and life saving practice for informed decision making.', total_budget:172200, unicef_budget:122640, cso_budget:49560 },
+    { id:'o002', project_id:'p001', output_code:'Output 2', is_admin:false, description:'Communities have access to inclusive feedback mechanisms for informed decision-making and resilience.', total_budget:79330, unicef_budget:42130, cso_budget:37200 },
+    { id:'o003', project_id:'p001', output_code:'Output 3', is_admin:false, description:'Communities have increased access to broadcasting of integrated lifesaving information via partner radio stations across South Sudan.', total_budget:355680, unicef_budget:334140, cso_budget:21540 },
+    { id:'o004', project_id:'p001', output_code:'Output 4', is_admin:true, description:'Programme security risk management.', total_budget:15600, unicef_budget:15600, cso_budget:0 },
+    { id:'o005', project_id:'p001', output_code:'Output 5', is_admin:true, description:'Effective and efficient programme management.', total_budget:176400, unicef_budget:77940, cso_budget:98460 }
+  ],
+  activities: [
+    { id:'a001', output_id:'o001', project_id:'p001', activity_code:'Act.1.1', description:'Production of Radio programs: Talkshow, Drama, 1 min PSA Messages (Scripting, Translation, Mastering, Voicing and recording) in multiple languages.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget:102400, unicef_budget:66800, cso_budget:35600 },
+    { id:'a002', output_id:'o001', project_id:'p001', activity_code:'Act.1.2', description:'Production of 5 min Radio drama series on thematic areas in Simple Arabic, Dinka, Nuer, Shiluk, Bari, Zande, Lotuho and Toposa.', q1_y1:1, q2_y1:0, q3_y1:1, q4_y1:0, total_budget:69800, unicef_budget:55840, cso_budget:13960 },
+    { id:'a003', output_id:'o002', project_id:'p001', activity_code:'Act.2.1', description:'Establishment and management of community feedback mechanisms through Eye Radio Listener Call-in platform.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget:54000, unicef_budget:16800, cso_budget:37200 },
+    { id:'a004', output_id:'o002', project_id:'p001', activity_code:'Act.2.2', description:'Training of 35 Journalists (10 per region) on documentation of UNICEF thematic areas.', q1_y1:0, q2_y1:1, q3_y1:0, q4_y1:0, total_budget:25330, unicef_budget:25330, cso_budget:0 },
+    { id:'a005', output_id:'o003', project_id:'p001', activity_code:'Act.3.1', description:'Eye Radio live Broadcast of talkshow with call-ins and airing of spots.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget:73400, unicef_budget:51860, cso_budget:21540 },
+    { id:'a006', output_id:'o003', project_id:'p001', activity_code:'Act.3.2', description:'26 Radio stations in South Sudan airing spots/jingles on integrated thematic messages.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget:212040, unicef_budget:212040, cso_budget:0 },
+    { id:'a007', output_id:'o003', project_id:'p001', activity_code:'Act.3.3', description:'16 Radio stations airing Drama episodes on integrated thematic messages.', q1_y1:1, q2_y1:1, q3_y1:0, q4_y1:1, total_budget:10240, unicef_budget:10240, cso_budget:0 },
+    { id:'a008', output_id:'o003', project_id:'p001', activity_code:'Act.3.4', description:'20 Radio stations airing Talk shows on Integrated life saving thematic areas.', q1_y1:0, q2_y1:1, q3_y1:1, q4_y1:1, total_budget:60000, unicef_budget:60000, cso_budget:0 }
+  ],
+  subActivities: [
+    // Act.1.1 breakdown
+    { id:'sa001', activity_id:'a001', project_id:'p001', sub_code:'Act.1.1.1', description:'Script writing and translation (8 languages)', category:'Labour', planned_budget:18000, created_at:new Date().toISOString() },
+    { id:'sa002', activity_id:'a001', project_id:'p001', sub_code:'Act.1.1.2', description:'Voice recording and studio mastering', category:'Labour', planned_budget:22000, created_at:new Date().toISOString() },
+    { id:'sa003', activity_id:'a001', project_id:'p001', sub_code:'Act.1.1.3', description:'Production equipment and consumables', category:'Materials', planned_budget:8400, created_at:new Date().toISOString() },
+    { id:'sa004', activity_id:'a001', project_id:'p001', sub_code:'Act.1.1.4', description:'Distribution to partner stations', category:'Transport', planned_budget:4600, created_at:new Date().toISOString() },
+    // Act.1.2 breakdown
+    { id:'sa005', activity_id:'a002', project_id:'p001', sub_code:'Act.1.2.1', description:'Drama script development (5 episodes)', category:'Labour', planned_budget:15000, created_at:new Date().toISOString() },
+    { id:'sa006', activity_id:'a002', project_id:'p001', sub_code:'Act.1.2.2', description:'Actor rehearsals and direction', category:'Labour', planned_budget:12000, created_at:new Date().toISOString() },
+    { id:'sa007', activity_id:'a002', project_id:'p001', sub_code:'Act.1.2.3', description:'Studio recording and post-production', category:'Materials', planned_budget:9800, created_at:new Date().toISOString() },
+    // Act.2.2 breakdown
+    { id:'sa008', activity_id:'a004', project_id:'p001', sub_code:'Act.2.2.1', description:'Training venue and accommodation', category:'Venue', planned_budget:8000, created_at:new Date().toISOString() },
+    { id:'sa009', activity_id:'a004', project_id:'p001', sub_code:'Act.2.2.2', description:'Facilitator fees and training materials', category:'Labour', planned_budget:9330, created_at:new Date().toISOString() },
+    { id:'sa010', activity_id:'a004', project_id:'p001', sub_code:'Act.2.2.3', description:'Participant transport and per diems', category:'Transport', planned_budget:8000, created_at:new Date().toISOString() }
+  ],
+  progress: [
+    { id:'pr001', activity_id:'a001', sub_activity_id:'sa001', project_id:'p001', period:'Q1 Y1', status:'completed', percent_complete:100, actual_expenditure:17500, notes:'All Q1 scripts completed. 48 PSAs written and translated across 6 languages.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2025-11-30T10:00:00Z' },
+    { id:'pr002', activity_id:'a001', sub_activity_id:'sa002', project_id:'p001', period:'Q1 Y1', status:'completed', percent_complete:100, actual_expenditure:21200, notes:'Q1 recording complete. All 48 PSAs mastered and archived.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2025-11-30T11:00:00Z' },
+    { id:'pr003', activity_id:'a003', sub_activity_id:null, project_id:'p001', period:'Q1 Y1', status:'completed', percent_complete:100, actual_expenditure:13500, notes:'Call-in platform operational. 847 feedback entries received Q1.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2025-11-30T12:00:00Z' },
+    { id:'pr004', activity_id:'a005', sub_activity_id:null, project_id:'p001', period:'Q1 Y1', status:'completed', percent_complete:100, actual_expenditure:18350, notes:'Live talkshows broadcast weekly from Eye Radio Juba.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2025-11-30T14:00:00Z' },
+    { id:'pr005', activity_id:'a001', sub_activity_id:'sa001', project_id:'p001', period:'Q2 Y1', status:'in-progress', percent_complete:65, actual_expenditure:0, notes:'Q2 drama scripting underway. 3 of 5 episodes completed.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2026-02-28T10:00:00Z' },
+    { id:'pr006', activity_id:'a004', sub_activity_id:'sa008', project_id:'p001', period:'Q2 Y1', status:'delayed', percent_complete:0, actual_expenditure:0, notes:'Training postponed due to accessibility challenges in Upper Nile. Rescheduled to Q3.', evidence_url:'', submitted_by:'Mono Taban', submitted_at:'2026-02-28T10:00:00Z' }
+  ],
+  users: [{ id:'u001', name:'Mono Taban', org:'Eye Media Group', role:'admin', status:'active', created_at:new Date().toISOString() }]
+};
+
+/* ================================================================
+   INDEXEDDB
+================================================================ */
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ActivityTrackDB', 2);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      ['projects','outputs','activities','subActivities','progress','users'].forEach(s => {
+        if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath:'id' });
+      });
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath:'key' });
+    };
+    req.onsuccess = e => { App.db = e.target.result; resolve(App.db); };
+    req.onerror = e => reject(e);
+  });
+}
+function dbGet(store) {
+  return new Promise(res => {
+    if (!App.db) return res([]);
+    const tx = App.db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror = () => res([]);
+  });
+}
+function dbPut(store, item) {
+  return new Promise(res => {
+    if (!App.db) return res();
+    const tx = App.db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(item);
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+function dbDelete(store, id) {
+  return new Promise(res => {
+    if (!App.db) return res();
+    const tx = App.db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+function dbGetSetting(key) {
+  return new Promise(res => {
+    if (!App.db) return res(null);
+    const tx = App.db.transaction('settings', 'readonly');
+    const req = tx.objectStore('settings').get(key);
+    req.onsuccess = e => res(e.target.result ? e.target.result.value : null);
+    req.onerror = () => res(null);
+  });
+}
+function dbSetSetting(key, value) {
+  return new Promise(res => {
+    if (!App.db) return res();
+    const tx = App.db.transaction('settings', 'readwrite');
+    tx.objectStore('settings').put({ key, value });
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+
+/* ================================================================
+   SYNC
+================================================================ */
+function syncData() {
+  if (!App.scriptUrl) { toast('No Apps Script URL configured.','warning'); return; }
+  setSyncState('syncing');
+  const url = `${App.scriptUrl}?action=getAll&callback=syncCallback&t=${Date.now()}`;
+  const s = document.createElement('script'); s.src = url;
+  s.onerror = () => { setSyncState('offline'); toast('Sync failed — working offline','error'); document.head.removeChild(s); };
+  document.head.appendChild(s);
+  setTimeout(() => { if (document.head.contains(s)) { document.head.removeChild(s); setSyncState('offline'); } }, 10000);
+}
+window.syncCallback = async function(data) {
+  if (!data || data.error) { setSyncState('offline'); return; }
+  for (const store of ['projects','outputs','activities','subActivities','progress','users']) {
+    if (data[store]) { App.data[store] = data[store]; for (const item of data[store]) await dbPut(store, item); }
+  }
+  setSyncState('synced'); toast('Synced with Google Sheets ✓','success'); renderCurrentView();
+};
+function postToSheets(action, payload) {
+  if (!App.scriptUrl) return;
+  const cbName = 'cb_' + Date.now();
+  const url = `${App.scriptUrl}?action=${action}&data=${encodeURIComponent(JSON.stringify(payload))}&callback=${cbName}&t=${Date.now()}`;
+  window[cbName] = res => delete window[cbName];
+  const s = document.createElement('script'); s.src = url;
+  s.onerror = () => document.head.removeChild(s);
+  document.head.appendChild(s);
+  setTimeout(() => { if (document.head.contains(s)) document.head.removeChild(s); }, 8000);
+}
+function setSyncState(state) {
+  const dot = document.getElementById('sync-dot'); const label = document.getElementById('sync-label');
+  if (!dot || !label) return;
+  dot.className = 'sync-dot ' + state;
+  label.textContent = state==='synced'?'Synced':state==='syncing'?'Syncing…':state==='offline'?'Offline':'Local';
+}
+
+/* ================================================================
+   HELPERS
+================================================================ */
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); }
+function toast(msg, type='info', dur=3500) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type==='success'?'success':type==='error'?'error':type==='warning'?'warning':'');
+  t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), dur);
+}
+function fmtMoney(n) { return '$' + (n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function closeModal() { const m = document.getElementById('modal-root'); if (m) m.remove(); }
+function showModal(html) {
+  closeModal();
+  const div = document.createElement('div'); div.id = 'modal-root'; div.className = 'modal-overlay';
+  div.innerHTML = html; div.addEventListener('click', e => { if (e.target===div) closeModal(); });
+  document.body.appendChild(div);
+}
+function statusBadge(status) {
+  const map = { 'not-started':['badge-not-started','○ Not Started'], 'planned':['badge-planned','◈ Planned'],
+    'in-progress':['badge-in-progress','◉ In Progress'], 'completed':['badge-completed','✓ Completed'],
+    'delayed':['badge-delayed','⚠ Delayed'], 'active':['badge-active','● Active'], 'closed':['badge-closed','■ Closed'] };
+  const [cls, label] = map[status] || ['badge-not-started', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function spendLabel(spent, planned) {
+  if (!spent) return '<span class="spend-label none">No spend</span>';
+  const pct = planned ? (spent/planned*100) : 0;
+  if (pct > 100) return `<span class="spend-label over">Over ${Math.round(pct)}%</span>`;
+  if (pct > 80)  return `<span class="spend-label warn">${Math.round(pct)}% used</span>`;
+  return `<span class="spend-label ok">${Math.round(pct)}% used</span>`;
+}
+
+/* ================================================================
+   NAVIGATION
+================================================================ */
+function navigate(view, params) {
+  App.currentView = view; App.navParams = params || {};
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const views = ['dashboard','projects','activities','progress','budget','reports','users','settings'];
+  const idx = views.indexOf(view);
+  const navItems = document.querySelectorAll('.nav-item');
+  if (idx >= 0 && navItems[idx]) navItems[idx].classList.add('active');
+  const titles = {
+    dashboard:['Overview','Dashboard'], projects:['Projects','All Projects'],
+    activities:['Projects','Activity Tracker'], progress:['Projects','Progress Log'],
+    budget:['Finance','Budget Tracker — Programme Activities'],
+    reports:['Reports','Reports & Exports'], users:['Admin','User Management'],
+    settings:['Admin','Settings'], project_detail:['Projects','Project Detail']
+  };
+  const [bread, title] = titles[view] || ['',''];
+  document.getElementById('topbar-breadcrumb').textContent = bread;
+  document.getElementById('topbar-title').textContent = title;
+  const actionMap = {
+    dashboard:['+ New Project','openProjectModal'], projects:['+ New Project','openProjectModal'],
+    activities:['+ Log Progress','openProgressModal'], progress:['+ Log Progress','openProgressModal'],
+    budget:['',''], reports:['📥 Export','exportReport'], users:['+ Invite User','openUserModal'], settings:['','']
+  };
+  const [btnLabel, btnFn] = actionMap[view] || ['',''];
+  const btn = document.getElementById('topbar-action-btn');
+  btn.textContent = btnLabel; btn.style.display = btnLabel ? '' : 'none'; btn._fn = btnFn;
+  renderCurrentView();
+}
+function handleTopAction() {
+  const fn = document.getElementById('topbar-action-btn')._fn;
+  if (fn === 'openProjectModal') openProjectModal();
+  else if (fn === 'openProgressModal') openProgressModal('','');
+  else if (fn === 'openUserModal') openUserModal();
+  else if (fn === 'exportReport') navigate('reports');
+}
+function renderCurrentView() {
+  const v = App.currentView; const el = document.getElementById('content');
+  if (v==='dashboard') el.innerHTML = renderDashboard();
+  else if (v==='projects') el.innerHTML = renderProjects();
+  else if (v==='activities') el.innerHTML = renderActivities();
+  else if (v==='progress') el.innerHTML = renderProgress();
+  else if (v==='budget') el.innerHTML = renderBudget();
+  else if (v==='reports') el.innerHTML = renderReports();
+  else if (v==='users') el.innerHTML = renderUsers();
+  else if (v==='settings') el.innerHTML = renderSettings();
+  else if (v==='project_detail') el.innerHTML = renderProjectDetail(App.navParams.projectId);
+}
+
+/* ================================================================
+   DASHBOARD
+================================================================ */
+function renderDashboard() {
+  const d = App.data;
+  const progOutputActs = d.activities.filter(a => !isAdminOutput(d.outputs.find(o=>o.id===a.output_id)));
+  const totalBudget = progOutputActs.reduce((s,a)=>s+(a.total_budget||0),0);
+  const totalSpent = d.progress.reduce((s,p)=>s+(p.actual_expenditure||0),0);
+  const delayed = d.progress.filter(p=>p.status==='delayed').length;
+  const subTotal = d.subActivities.length;
+
+  const projectCards = d.projects.map(p => {
+    const pActs = d.activities.filter(a=>a.project_id===p.id && !isAdminOutput(d.outputs.find(o=>o.id===a.output_id)));
+    const pProg = d.progress.filter(x=>pActs.find(a=>a.id===x.activity_id));
+    const pct = pProg.length ? Math.round(pProg.filter(x=>x.status==='completed').length/pProg.length*100) : 0;
+    return `<div class="project-card" onclick="navigate('project_detail',{projectId:'${p.id}'})">
+      <div class="project-funder">${p.funder}</div>
+      <div class="project-name">${p.name}</div>
+      <div class="project-partner">👥 ${p.partner}</div>
+      <div class="project-progress-label"><span>Programme Progress</span><span>${pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill ${pct>=80?'green':pct>=40?'':'amber'}" style="width:${pct}%"></div></div>
+      <div class="project-meta">
+        <div class="project-meta-item"><strong>${fmtMoney(totalBudget)}</strong>Programme Budget</div>
+        <div class="project-meta-item"><strong>${fmtDate(p.start_date)} – ${fmtDate(p.end_date)}</strong>Period</div>
+        <div class="project-meta-item"><strong>${pActs.length}</strong>Programme Activities</div>
+        <div class="project-meta-item">${statusBadge(p.status)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const recent = [...d.progress].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at)).slice(0,6);
+  const recentRows = recent.map(pr => {
+    const act = d.activities.find(a=>a.id===pr.activity_id)||{};
+    const sub = pr.sub_activity_id ? d.subActivities.find(s=>s.id===pr.sub_activity_id) : null;
+    const proj = d.projects.find(p=>p.id===pr.project_id)||{};
+    return `<tr>
+      <td class="td-code">${sub ? sub.sub_code : act.activity_code||'—'}</td>
+      <td class="td-desc"><span>${sub ? sub.description : (act.description||'').substring(0,70)+'…'}</span><small>${proj.name||''} ${sub?'· '+act.activity_code:''}</small></td>
+      <td>${pr.period}</td><td>${statusBadge(pr.status)}</td>
+      <td class="text-right font-mono">${pr.percent_complete||0}%</td>
+      <td class="text-right font-mono">${pr.actual_expenditure ? fmtMoney(pr.actual_expenditure) : '—'}</td>
+      <td class="text-right text-muted text-small">${fmtDate(pr.submitted_at)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="kpi-grid">
+    <div class="kpi-card blue"><div class="kpi-icon">📁</div><div class="kpi-value">${d.projects.length}</div><div class="kpi-label">Projects</div><div class="kpi-sub">${d.projects.filter(p=>p.status==='active').length} active</div></div>
+    <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${progOutputActs.length}</div><div class="kpi-label">Programme Activities</div><div class="kpi-sub">Admin excluded</div></div>
+    <div class="kpi-card purple"><div class="kpi-icon">🔹</div><div class="kpi-value">${subTotal}</div><div class="kpi-label">Sub-Activities</div><div class="kpi-sub">With budget breakdown</div></div>
+    <div class="kpi-card amber"><div class="kpi-icon">⚠️</div><div class="kpi-value">${delayed}</div><div class="kpi-label">Delayed Items</div><div class="kpi-sub">Requiring attention</div></div>
+    <div class="kpi-card navy"><div class="kpi-icon">💰</div><div class="kpi-value">${fmtMoney(totalBudget)}</div><div class="kpi-label">Programme Budget</div><div class="kpi-sub">Excl. admin costs</div></div>
+    <div class="kpi-card red"><div class="kpi-icon">📤</div><div class="kpi-value">${fmtMoney(totalSpent)}</div><div class="kpi-label">Total Spent</div><div class="kpi-sub">${totalBudget?Math.round(totalSpent/totalBudget*100):0}% utilised</div></div>
+  </div>
+  <div class="admin-notice">🔒 Admin note: Output 4 (Security) and Output 5 (Programme Management) are excluded from all programme M&E tracking. Toggle visibility per output in project settings.</div>
+  <div class="page-header">
+    <div><div class="page-title">Active Projects</div><div class="page-sub">Click to view outputs, activities, and sub-activities</div></div>
+    <button class="btn btn-primary" onclick="openProjectModal()">+ New Project</button>
+  </div>
+  <div class="grid-auto mb-24">${projectCards||'<p class="text-muted">No projects yet.</p>'}</div>
+  <div class="card">
+    <div class="card-header"><span>📝</span><span class="card-title">Recent Progress Updates</span><span class="card-subtitle"><button class="btn btn-outline btn-sm" onclick="navigate('progress')">View All</button></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Period</th><th>Status</th><th class="text-right">% Done</th><th class="text-right">Spent</th><th class="text-right">Date</th></tr></thead>
+      <tbody>${recentRows||'<tr><td colspan="7" class="text-center text-muted" style="padding:32px">No progress entries yet.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ================================================================
+   PROJECTS LIST
+================================================================ */
+function renderProjects() {
+  const rows = App.data.projects.map(p => {
+    const pActs = App.data.activities.filter(a=>a.project_id===p.id && !isAdminOutput(App.data.outputs.find(o=>o.id===a.output_id)));
+    const pSubs = App.data.subActivities.filter(s=>s.project_id===p.id);
+    const pProg = App.data.progress.filter(x=>pActs.find(a=>a.id===x.activity_id));
+    const pct = pProg.length ? Math.round(pProg.filter(x=>x.status==='completed').length/pProg.length*100) : 0;
+    return `<tr>
+      <td class="td-code">${p.ref_number||'—'}</td>
+      <td class="td-desc"><strong>${p.name}</strong><small>${p.funder} · ${p.partner}</small></td>
+      <td>${p.sector||'—'}</td>
+      <td class="font-mono">${fmtMoney(p.total_budget)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${pct}%"></div></div><span class="text-small font-mono">${pct}%</span></div></td>
+      <td class="text-small text-muted">${pActs.length} acts · ${pSubs.length} sub-acts</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="navigate('project_detail',{projectId:'${p.id}'})">View</button>
+        <button class="btn btn-outline btn-xs" onclick="editProject('${p.id}')">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${p.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="page-header">
+    <div><div class="page-title">All Projects</div><div class="page-sub">${App.data.projects.length} project(s)</div></div>
+    <button class="btn btn-primary" onclick="openProjectModal()">+ New Project</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>Ref</th><th>Project</th><th>Sector</th><th>Budget</th><th>Progress</th><th>Scale</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="8" class="text-center text-muted" style="padding:40px">No projects yet.</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+/* ================================================================
+   PROJECT DETAIL — with sub-activities visible inline
+================================================================ */
+function renderProjectDetail(projectId) {
+  const p = App.data.projects.find(x=>x.id===projectId);
+  if (!p) return '<p>Project not found.</p>';
+  const outputs = App.data.outputs.filter(o=>o.project_id===projectId);
+  document.getElementById('topbar-title').textContent = p.name.substring(0,50)+(p.name.length>50?'…':'');
+
+  const outputBlocks = outputs.map(o => {
+    const acts = App.data.activities.filter(a=>a.output_id===o.id);
+    const adminFlag = isAdminOutput(o);
+
+    const actRows = acts.map(a => {
+      const subs = App.data.subActivities.filter(s=>s.activity_id===a.id);
+      const progEntries = App.data.progress.filter(x=>x.activity_id===a.id);
+      const latestProg = progEntries.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+      const status = latestProg ? latestProg.status : 'not-started';
+      const pct = latestProg ? (latestProg.percent_complete||0) : 0;
+      const actSpent = progEntries.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const actBudget = a.total_budget||0;
+      const quarters = ['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i) => {
+        const label = ['Q1','Q2','Q3','Q4'][i]+' Y1';
+        if (!a[q]) return `<span style="color:var(--gray-300)">·</span>`;
+        const qp = progEntries.find(x=>x.period===label);
+        const qs = qp ? qp.status : 'planned';
+        const colors = {planned:'#1CABE2','in-progress':'#F39C12',completed:'#2ECC71',delayed:'#E74C3C'};
+        return `<span title="${label}: ${qs}" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${colors[qs]||'#ddd'};cursor:pointer" onclick="openProgressModal('${a.id}','${label}')"></span>`;
+      }).join(' ');
+
+      // Sub-activity panel
+      const subRows = subs.map(s => {
+        const sProg = App.data.progress.filter(x=>x.sub_activity_id===s.id);
+        const sLatest = sProg.sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at))[0];
+        const sStatus = sLatest ? sLatest.status : 'not-started';
+        const sSpent = sProg.reduce((sum,x)=>sum+(x.actual_expenditure||0),0);
+        const sPct = s.planned_budget ? Math.round(sSpent/s.planned_budget*100) : 0;
+        return `<div class="subact-row">
+          <div class="subact-code">${s.sub_code}</div>
+          <div class="subact-desc">${s.description}</div>
+          <span class="subact-cat ${s.category}">${s.category}</span>
+          ${statusBadge(sStatus)}
+          <div class="subact-budget">${fmtMoney(s.planned_budget)}</div>
+          <div class="subact-spent ${sSpent>s.planned_budget?'over':''}">${sSpent?fmtMoney(sSpent):'—'}</div>
+          <div class="subact-pct">${sPct?sPct+'%':'—'}</div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-primary btn-xs" onclick="openProgressModal('${a.id}','','${s.id}')">+ Log</button>
+            <button class="btn btn-outline btn-xs" onclick="editSubActivity('${s.id}')">✏</button>
+            <button class="btn btn-danger btn-xs" onclick="deleteSubActivity('${s.id}')">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      const subTotal = subs.reduce((s,x)=>s+(x.planned_budget||0),0);
+      const unallocated = actBudget - subTotal;
+
+      return `<div class="activity-row" style="flex-direction:column;padding:0">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 18px">
+          <div class="activity-code">${a.activity_code}</div>
+          <div class="activity-desc">
+            <div>${a.description}</div>
+            <div class="flex-center gap-8" style="margin-top:6px">
+              <span class="text-small font-mono" style="color:var(--navy)">${fmtMoney(actBudget)}</span>
+              ${actSpent?`<span class="text-small font-mono" style="color:var(--green)">Spent: ${fmtMoney(actSpent)}</span>`:''}
+              ${unallocated && subs.length ? `<span class="text-small text-muted">Unallocated: ${fmtMoney(unallocated)}</span>` : ''}
+              <span style="display:flex;gap:3px">${quarters}</span>
+            </div>
+          </div>
+          <div class="activity-meta">
+            ${statusBadge(status)}
+            <button class="btn btn-outline btn-xs" onclick="openSubActivityModal('${a.id}','${p.id}')">+ Sub-Activity</button>
+            ${!adminFlag ? `<button class="btn btn-primary btn-xs" onclick="openProgressModal('${a.id}','')">+ Log</button>` : ''}
+          </div>
+        </div>
+        ${subs.length ? `<div class="subact-panel">
+          <div class="subact-header">
+            <span>Sub-Activities (${subs.length})</span>
+            <span style="display:flex;gap:20px"><span>Planned Budget</span><span>Actual Spent</span><span>% Used</span><span></span></span>
+          </div>
+          ${subRows}
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+    const oProg = App.data.progress.filter(x => acts.find(a=>a.id===x.activity_id));
+    const oPct = oProg.length ? Math.round(oProg.filter(x=>x.status==='completed').length/oProg.length*100) : 0;
+    const oSpent = oProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+
+    return `<div class="output-block open ${adminFlag?'is-admin':''}" id="out_${o.id}">
+      <div class="output-header" onclick="toggleOutput('${o.id}')">
+        <span class="output-code ${adminFlag?'admin-tag':''}">${o.output_code}</span>
+        <span class="output-desc">${o.description}</span>
+        ${adminFlag ? '<span class="badge badge-admin">Admin</span>' : ''}
+        <span class="text-small font-mono text-muted" style="white-space:nowrap">${fmtMoney(o.total_budget)}</span>
+        ${oSpent ? `<span class="text-small font-mono" style="color:var(--green);white-space:nowrap">Spent: ${fmtMoney(oSpent)}</span>` : ''}
+        <div class="progress-bar" style="width:70px;flex-shrink:0"><div class="progress-fill" style="width:${oPct}%"></div></div>
+        <span class="text-small text-muted">${oPct}%</span>
+        <span class="output-toggle">▾</span>
+      </div>
+      <div class="output-activities">${actRows||'<div style="padding:16px 18px;color:var(--gray-500);font-size:13px">No activities for this output.</div>'}</div>
+    </div>`;
+  }).join('');
+
+  const allProgActs = App.data.activities.filter(a=>a.project_id===projectId&&!isAdminOutput(App.data.outputs.find(o=>o.id===a.output_id)));
+  const progBudget = allProgActs.reduce((s,a)=>s+(a.total_budget||0),0);
+  const allProg = App.data.progress.filter(x=>allProgActs.find(a=>a.id===x.activity_id));
+  const totalSpent = allProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const spendPct = progBudget ? Math.round(totalSpent/progBudget*100) : 0;
+  const subCount = App.data.subActivities.filter(s=>s.project_id===projectId).length;
+
+  return `
+  <div class="flex-between mb-24">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="navigate('projects')" style="margin-bottom:10px">← Back</button>
+      <div class="page-title">${p.name}</div>
+      <div class="page-sub">${p.funder} · Ref: ${p.ref_number||'N/A'} · ${fmtDate(p.start_date)} – ${fmtDate(p.end_date)}</div>
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-outline btn-sm" onclick="openOutputModal('${p.id}')">+ Output</button>
+      <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+    </div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${outputs.filter(o=>!isAdminOutput(o)).length}</div><div class="kpi-label">Prog. Outputs</div></div>
+    <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${allProgActs.length}</div><div class="kpi-label">Activities</div></div>
+    <div class="kpi-card purple"><div class="kpi-icon">🔹</div><div class="kpi-value">${subCount}</div><div class="kpi-label">Sub-Activities</div></div>
+    <div class="kpi-card navy"><div class="kpi-icon">💰</div><div class="kpi-value">${fmtMoney(progBudget)}</div><div class="kpi-label">Prog. Budget</div><div class="kpi-sub">Admin excluded</div></div>
+    <div class="kpi-card ${spendPct>90?'red':spendPct>70?'amber':'green'}">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-value">${fmtMoney(totalSpent)}</div>
+      <div class="kpi-label">Total Spent</div>
+      <div class="progress-bar mt-8"><div class="progress-fill ${spendPct>90?'red':spendPct>70?'amber':'green'}" style="width:${Math.min(spendPct,100)}%"></div></div>
+    </div>
+  </div>
+  <div class="admin-notice">🔒 Admin costs (Output 4, Output 5) are shown below but excluded from M&E budget monitoring.</div>
+  <div class="page-header" style="margin-top:8px">
+    <div class="page-title" style="font-size:16px">Outputs & Activities</div>
+    <div class="flex gap-8 text-small">
+      <span class="badge badge-planned">Planned</span><span class="badge badge-in-progress">In Progress</span>
+      <span class="badge badge-completed">Completed</span><span class="badge badge-delayed">Delayed</span>
+      <span class="badge badge-admin">Admin (excluded)</span>
+    </div>
+  </div>
+  ${outputBlocks||'<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No outputs yet</div><button class="btn btn-primary" onclick="openOutputModal(\''+p.id+'\')">+ Add Output</button></div>'}`;
+}
+
+function toggleOutput(id) { const el=document.getElementById('out_'+id); if(el) el.classList.toggle('open'); }
+
+/* ================================================================
+   ACTIVITY TRACKER
+================================================================ */
+function renderActivities() {
+  const d = App.data;
+  const projectFilter = App.navParams.projectId || '';
+  const progActs = d.activities.filter(a => !isAdminOutput(d.outputs.find(o=>o.id===a.output_id)));
+  const displayActs = projectFilter ? progActs.filter(a=>a.project_id===projectFilter) : progActs;
+  const projectOpts = d.projects.map(p=>`<option value="${p.id}" ${p.id===projectFilter?'selected':''}>${p.name.substring(0,50)}</option>`).join('');
+
+  const rows = displayActs.map(a => {
+    const subs = d.subActivities.filter(s=>s.activity_id===a.id);
+    const prog = d.progress.filter(x=>x.activity_id===a.id);
+    const latest = prog.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+    const status = latest ? latest.status : 'not-started';
+    const pct = latest ? (latest.percent_complete||0) : 0;
+    const actSpent = prog.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const proj = d.projects.find(p=>p.id===a.project_id)||{};
+    const out = d.outputs.find(o=>o.id===a.output_id)||{};
+    const subSpent = subs.reduce((s,x)=>{
+      const sp = d.progress.filter(p=>p.sub_activity_id===x.id).reduce((ss,p)=>ss+(p.actual_expenditure||0),0);
+      return s+sp;
+    },0);
+    const quarters = ['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i) => {
+      const label=['Q1','Q2','Q3','Q4'][i]+' Y1';
+      if (!a[q]) return '<span style="color:var(--gray-300)">·</span>';
+      const qp = prog.find(x=>x.period===label);
+      const qs = qp?qp.status:'planned';
+      const colors={planned:'#1CABE2','in-progress':'#F39C12',completed:'#2ECC71',delayed:'#E74C3C'};
+      return `<span title="${label}: ${qs}" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${colors[qs]||'#ddd'};cursor:pointer" onclick="openProgressModal('${a.id}','${label}')"></span>`;
+    }).join(' ');
+    return `<tr>
+      <td class="td-code">${a.activity_code}</td>
+      <td class="td-desc"><span>${a.description.substring(0,80)}…</span><small>${proj.name||''} · ${out.output_code||''}</small></td>
+      <td>${quarters}</td>
+      <td>${statusBadge(status)}</td>
+      <td><div class="flex-center gap-8"><div class="progress-bar" style="width:70px"><div class="progress-fill ${pct>=80?'green':pct>=40?'':'amber'}" style="width:${pct}%"></div></div><span class="text-small font-mono">${pct}%</span></div></td>
+      <td class="font-mono text-small">${fmtMoney(a.total_budget)}</td>
+      <td class="font-mono text-small ${actSpent?'':'text-muted'}">${actSpent?fmtMoney(actSpent):'—'}</td>
+      <td><span class="chip">${subs.length} sub-acts</span></td>
+      <td>
+        <button class="btn btn-purple btn-xs" onclick="openSubActivityModal('${a.id}','${a.project_id}')">+ Sub</button>
+        <button class="btn btn-primary btn-xs" onclick="openProgressModal('${a.id}','')">+ Log</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Activity Tracker</div><div class="page-sub">${displayActs.length} programme activities (admin excluded)</div></div>
+    <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+  </div>
+  <div class="filter-bar">
+    <div class="search-box"><span class="search-icon">🔍</span><input type="text" placeholder="Search activities…" oninput="filterTable(this.value,'act-tbl')"></div>
+    <select class="filter-select" onchange="App.navParams.projectId=this.value;renderCurrentView()"><option value="">All Projects</option>${projectOpts}</select>
+  </div>
+  <div class="card"><div class="table-wrap"><table id="act-tbl">
+    <thead><tr><th>Code</th><th>Activity</th><th>Quarters</th><th>Status</th><th>Progress</th><th>Budget</th><th>Spent</th><th>Sub-Acts</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="9" class="text-center text-muted" style="padding:40px">No activities found.</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+/* ================================================================
+   PROGRESS LOG
+================================================================ */
+function renderProgress() {
+  const d = App.data;
+  const allProg = [...d.progress].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
+  const rows = allProg.map(pr => {
+    const act = d.activities.find(a=>a.id===pr.activity_id)||{};
+    const sub = pr.sub_activity_id ? d.subActivities.find(s=>s.id===pr.sub_activity_id) : null;
+    const proj = d.projects.find(p=>p.id===pr.project_id)||{};
+    const out = d.outputs.find(o=>o.id===act.output_id)||{};
+    return `<tr>
+      <td class="td-code">${sub ? sub.sub_code : act.activity_code||'—'}</td>
+      <td class="td-desc">
+        ${sub ? `<span style="color:var(--purple);font-weight:700">${sub.description}</span><small>${act.activity_code} · ${proj.name||''}</small>` : `<span>${(act.description||'').substring(0,70)}…</span><small>${proj.name||''}</small>`}
+        ${sub ? `<span class="subact-cat ${sub.category}" style="margin-top:2px">${sub.category}</span>` : ''}
+      </td>
+      <td><span class="chip">${pr.period||'—'}</span></td>
+      <td>${statusBadge(pr.status)}</td>
+      <td><div class="flex-center gap-8"><div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:${pr.percent_complete||0}%"></div></div><span class="font-mono text-small">${pr.percent_complete||0}%</span></div></td>
+      <td class="font-mono text-small ${pr.actual_expenditure?'':'text-muted'}">${pr.actual_expenditure?fmtMoney(pr.actual_expenditure):'—'}</td>
+      <td class="text-small" style="max-width:180px">${(pr.notes||'').substring(0,60)}${(pr.notes||'').length>60?'…':''}</td>
+      <td class="text-small text-muted">${pr.submitted_by||'—'}</td>
+      <td class="text-small text-muted">${fmtDate(pr.submitted_at)}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteProgress('${pr.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Progress Log</div><div class="page-sub">${allProg.length} entries — activity & sub-activity level</div></div>
+    <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+  </div>
+  <div class="filter-bar">
+    <div class="search-box"><span class="search-icon">🔍</span><input type="text" placeholder="Search…" oninput="filterTable(this.value,'prog-tbl')"></div>
+    <select class="filter-select"><option value="">All Projects</option>${d.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,40)}</option>`).join('')}</select>
+  </div>
+  <div class="card"><div class="table-wrap"><table id="prog-tbl">
+    <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Period</th><th>Status</th><th>Progress</th><th>Spent</th><th>Notes</th><th>By</th><th>Date</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="10" class="text-center text-muted" style="padding:40px">No entries yet.</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+/* ================================================================
+   BUDGET TRACKER — Programme Activities Only
+================================================================ */
+function renderBudget() {
+  const d = App.data;
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Budget Tracker</div><div class="page-sub">Programme activities only — admin and overhead costs excluded</div></div>
+  </div>
+  <div class="admin-notice">🔒 Outputs marked as Admin (Output 4, Output 5, HQ Support) are excluded from this view. Only programme delivery costs are tracked here.</div>
+  ${d.projects.map(p => renderProjectBudget(p)).join('') || '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">No projects yet</div></div>'}`;
+}
+
+function renderProjectBudget(p) {
+  const d = App.data;
+  const progOutputs = d.outputs.filter(o=>o.project_id===p.id && !isAdminOutput(o));
+  const adminOutputs = d.outputs.filter(o=>o.project_id===p.id && isAdminOutput(o));
+  const allProgActs = d.activities.filter(a=>a.project_id===p.id && progOutputs.find(o=>o.id===a.output_id));
+  const progBudget = progOutputs.reduce((s,o)=>s+(o.total_budget||0),0);
+  const allProg = d.progress.filter(x=>allProgActs.find(a=>a.id===x.activity_id));
+  const totalSpent = allProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const spendPct = progBudget ? Math.round(totalSpent/progBudget*100) : 0;
+  const adminBudget = adminOutputs.reduce((s,o)=>s+(o.total_budget||0),0);
+
+  const outputSections = progOutputs.map(o => {
+    const oActs = d.activities.filter(a=>a.output_id===o.id);
+    const oProg = d.progress.filter(x=>oActs.find(a=>a.id===x.activity_id));
+    const oSpent = oProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const oBalance = (o.total_budget||0) - oSpent;
+    const oPct = o.total_budget ? Math.round(oSpent/o.total_budget*100) : 0;
+
+    const actRows = oActs.map(a => {
+      const subs = d.subActivities.filter(s=>s.activity_id===a.id);
+      const aProg = d.progress.filter(x=>x.activity_id===a.id);
+      const aSpent = aProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const aBalance = (a.total_budget||0) - aSpent;
+      const aPct = a.total_budget ? Math.round(aSpent/a.total_budget*100) : 0;
+
+      // Sub-activity rows
+      const subRows = subs.map(s => {
+        const sProg = d.progress.filter(x=>x.sub_activity_id===s.id);
+        const sSpent = sProg.reduce((ss,x)=>ss+(x.actual_expenditure||0),0);
+        const sBal = (s.planned_budget||0) - sSpent;
+        const sPct = s.planned_budget ? Math.round(sSpent/s.planned_budget*100) : 0;
+        return `<tr class="subact-table-row">
+          <td class="td-code subact-indent" style="color:var(--purple)">${s.sub_code}</td>
+          <td class="td-desc">${s.description} <span class="subact-cat ${s.category}">${s.category}</span></td>
+          <td class="font-mono text-small">${fmtMoney(s.planned_budget)}</td>
+          <td>—</td><td>—</td>
+          <td class="font-mono text-small ${sSpent?'':'text-muted'}">${sSpent?fmtMoney(sSpent):'—'}</td>
+          <td class="font-mono text-small ${sBal<0?'':'text-muted'}">${fmtMoney(sBal)}</td>
+          <td>${spendLabel(sSpent, s.planned_budget)}</td>
+          <td>
+            <div class="budget-bar-wrap"><div class="progress-bar" style="width:80px"><div class="progress-fill purple" style="width:${Math.min(sPct,100)}%"></div></div>
+            <span class="text-small font-mono">${sPct}%</span></div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      const unallocated = (a.total_budget||0) - subs.reduce((s,x)=>s+(x.planned_budget||0),0);
+
+      return `<tr>
+        <td class="td-code">${a.activity_code}</td>
+        <td class="td-desc">
+          <span>${a.description.substring(0,80)}…</span>
+          ${subs.length ? `<small>${subs.length} sub-activities · Unallocated: ${fmtMoney(unallocated)}</small>` : ''}
+        </td>
+        <td class="font-mono">${fmtMoney(a.total_budget)}</td>
+        <td class="font-mono text-small">${fmtMoney(a.unicef_budget)}</td>
+        <td class="font-mono text-small">${fmtMoney(a.cso_budget)}</td>
+        <td class="font-mono ${aSpent?'':'text-muted'}">${aSpent?fmtMoney(aSpent):'—'}</td>
+        <td class="font-mono ${aBalance<0?'':'text-muted'}">${fmtMoney(aBalance)}</td>
+        <td>${spendLabel(aSpent, a.total_budget)}</td>
+        <td><div class="budget-bar-wrap"><div class="progress-bar" style="width:80px"><div class="progress-fill ${aPct>90?'red':aPct>70?'amber':'green'}" style="width:${Math.min(aPct,100)}%"></div></div><span class="text-small font-mono">${aPct}%</span></div></td>
+      </tr>${subRows}`;
+    }).join('');
+
+    return `
+    <div class="budget-section-title"><span class="output-code">${o.output_code}</span> ${o.description.substring(0,80)}…</div>
+    <table style="margin-bottom:20px">
+      <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Budget</th><th>UNICEF</th><th>CSO</th><th>Spent</th><th>Balance</th><th>Status</th><th>Utilisation</th></tr></thead>
+      <tbody>${actRows||'<tr><td colspan="9" class="text-muted text-center" style="padding:12px">No activities.</td></tr>'}
+      <tr style="background:#f5f7ff;font-weight:700">
+        <td colspan="2" class="text-small">Output ${o.output_code} Total</td>
+        <td class="font-mono">${fmtMoney(o.total_budget)}</td>
+        <td class="font-mono text-small">${fmtMoney(o.unicef_budget)}</td>
+        <td class="font-mono text-small">${fmtMoney(o.cso_budget)}</td>
+        <td class="font-mono ${oSpent?'':'text-muted'}">${oSpent?fmtMoney(oSpent):'—'}</td>
+        <td class="font-mono">${fmtMoney(oBalance)}</td>
+        <td>${spendLabel(oSpent, o.total_budget)}</td>
+        <td><div class="budget-bar-wrap"><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${Math.min(oPct,100)}%"></div></div><span class="text-small font-mono">${oPct}%</span></div></td>
+      </tr>
+      </tbody>
+    </table>`;
+  }).join('');
+
+  return `<div class="card mb-16">
+    <div class="card-header">
+      <span class="output-code">${p.ref_number||'PRJ'}</span>
+      <span class="card-title">${p.name}</span>
+      <span class="card-subtitle">${statusBadge(p.status)}</span>
+    </div>
+    <div class="card-body">
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi-card navy" style="margin:0"><div class="kpi-label">Programme Budget</div><div class="kpi-value" style="font-size:20px">${fmtMoney(progBudget)}</div><div class="kpi-sub">Excl. ${fmtMoney(adminBudget)} admin</div></div>
+        <div class="kpi-card ${totalSpent>0?'amber':'blue'}" style="margin:0"><div class="kpi-label">Total Spent</div><div class="kpi-value" style="font-size:20px">${fmtMoney(totalSpent)}</div><div class="kpi-sub">${spendPct}% utilised</div></div>
+        <div class="kpi-card ${(progBudget-totalSpent)<0?'red':'green'}" style="margin:0"><div class="kpi-label">Balance</div><div class="kpi-value" style="font-size:20px">${fmtMoney(progBudget-totalSpent)}</div></div>
+        <div class="kpi-card purple" style="margin:0"><div class="kpi-label">Admin (Excluded)</div><div class="kpi-value" style="font-size:20px">${fmtMoney(adminBudget)}</div><div class="kpi-sub">Not in M&E scope</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="budget-section-title">Programme Activities Budget Breakdown <span class="text-muted text-small">(purple rows = sub-activity detail)</span></div>
+      ${outputSections}
+      ${adminOutputs.length ? `
+        <div class="budget-section-title" style="color:var(--gray-500)">
+          <span>Admin Outputs</span><span class="admin-pill">Excluded from M&E</span>
+        </div>
+        <table><thead><tr><th>Output</th><th>Description</th><th>Budget</th></tr></thead><tbody>
+        ${adminOutputs.map(o=>`<tr><td class="td-code budget-excluded">${o.output_code}</td><td class="budget-excluded">${o.description.substring(0,80)}</td><td class="font-mono budget-excluded">${fmtMoney(o.total_budget)}</td></tr>`).join('')}
+        </tbody></table>
+      ` : ''}
+    </div>
+  </div>`;
+}
+
+/* ================================================================
+   REPORTS
+================================================================ */
+function renderReports() {
+  return `
+  <div class="page-header"><div><div class="page-title">Reports & Exports</div></div></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><span>📊</span><span class="card-title">Quarterly Progress Report</span></div>
+      <div class="card-body">
+        <p class="text-muted mb-16 text-small">Activity and sub-activity implementation status for a selected quarter.</p>
+        <div class="form-group"><label class="form-label">Project</label><select class="form-control" id="rpt-project">${App.data.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,50)}</option>`).join('')}</select></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Quarter</label><select class="form-control" id="rpt-quarter"><option>Q1 Y1</option><option>Q2 Y1</option><option>Q3 Y1</option><option>Q4 Y1</option></select></div>
+          <div class="form-group"><label class="form-label">Include Sub-Activities</label><select class="form-control" id="rpt-subs"><option value="yes">Yes — show breakdown</option><option value="no">No — activity level only</option></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-header"><span>📥</span><span class="card-title">Export Data</span></div>
+      <div class="card-body">
+        <div class="form-group"><label class="form-label">Export Type</label><select class="form-control" id="export-type"><option value="progress">Progress Log</option><option value="subactivities">Sub-Activities & Spend</option><option value="budget">Budget Summary</option></select></div>
+        <button class="btn btn-outline" onclick="exportCSV()">📥 Export CSV</button>
+      </div>
+    </div>
+  </div>
+  <div id="report-output" class="mt-24"></div>`;
+}
+
+function generateReport() {
+  const projectId = document.getElementById('rpt-project').value;
+  const quarter = document.getElementById('rpt-quarter').value;
+  const inclSubs = document.getElementById('rpt-subs').value === 'yes';
+  const p = App.data.projects.find(x=>x.id===projectId);
+  if (!p) return;
+  const progOutputs = App.data.outputs.filter(o=>o.project_id===projectId && !isAdminOutput(o));
+  const acts = App.data.activities.filter(a=>a.project_id===projectId && progOutputs.find(o=>o.id===a.output_id));
+
+  let rows = '';
+  acts.forEach(a => {
+    const pr = App.data.progress.find(x=>x.activity_id===a.id && x.period===quarter && !x.sub_activity_id);
+    const out = App.data.outputs.find(o=>o.id===a.output_id)||{};
+    const aSpent = App.data.progress.filter(x=>x.activity_id===a.id && x.period===quarter).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    rows += `<tr>
+      <td class="td-code">${a.activity_code}</td>
+      <td>${out.output_code||'—'}</td>
+      <td>${a.description.substring(0,100)}</td>
+      <td>${pr ? statusBadge(pr.status) : statusBadge('not-started')}</td>
+      <td class="font-mono">${pr ? (pr.percent_complete||0)+'%' : '0%'}</td>
+      <td class="font-mono">${fmtMoney(a.total_budget)}</td>
+      <td class="font-mono">${aSpent?fmtMoney(aSpent):'—'}</td>
+      <td class="text-small">${pr ? (pr.notes||'') : '—'}</td>
+    </tr>`;
+    if (inclSubs) {
+      const subs = App.data.subActivities.filter(s=>s.activity_id===a.id);
+      subs.forEach(s => {
+        const sp = App.data.progress.find(x=>x.sub_activity_id===s.id && x.period===quarter);
+        const sSpent = App.data.progress.filter(x=>x.sub_activity_id===s.id && x.period===quarter).reduce((ss,x)=>ss+(x.actual_expenditure||0),0);
+        rows += `<tr style="background:#f9f9ff">
+          <td class="td-code" style="color:var(--purple);padding-left:24px">${s.sub_code}</td>
+          <td></td>
+          <td style="padding-left:24px;font-style:italic">${s.description} <span class="subact-cat ${s.category}">${s.category}</span></td>
+          <td>${sp ? statusBadge(sp.status) : '—'}</td>
+          <td class="font-mono">${sp ? (sp.percent_complete||0)+'%' : '—'}</td>
+          <td class="font-mono">${fmtMoney(s.planned_budget)}</td>
+          <td class="font-mono">${sSpent?fmtMoney(sSpent):'—'}</td>
+          <td class="text-small">${sp ? (sp.notes||'') : '—'}</td>
+        </tr>`;
+      });
+    }
+  });
+
+  document.getElementById('report-output').innerHTML = `
+  <div class="card">
+    <div class="card-header"><span>📊</span><span class="card-title">Progress Report — ${quarter}</span><span class="card-subtitle">${p.name} · ${p.funder}</span></div>
+    <div class="card-body"><p class="text-muted text-small mb-16">Generated: ${new Date().toLocaleString()} · Partner: ${p.partner} · ${inclSubs?'Includes sub-activity breakdown':''}</p></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Code</th><th>Output</th><th>Activity / Sub-Activity</th><th>Status</th><th>%</th><th>Budget</th><th>Spent</th><th>Notes</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="card-footer"><button class="btn btn-outline btn-sm" onclick="printSection('report-output')">🖨 Print</button></div>
+  </div>`;
+}
+
+function printSection(id) {
+  const el=document.getElementById(id);
+  const w=window.open('','_blank');
+  w.document.write('<html><head><title>ActivityTrack Report</title><style>body{font-family:sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5;font-weight:600}</style></head><body>');
+  w.document.write(el.innerHTML);
+  w.document.write('</body></html>');
+  w.document.close(); w.print();
+}
+
+function exportCSV() {
+  const type = document.getElementById('export-type').value;
+  let headers, data, filename;
+  if (type === 'progress') {
+    headers = ['ID','Activity Code','Sub-Activity Code','Project','Period','Status','% Complete','Actual Expenditure','Notes','Submitted By','Date'];
+    data = App.data.progress.map(pr => {
+      const a = App.data.activities.find(x=>x.id===pr.activity_id)||{};
+      const s = pr.sub_activity_id ? App.data.subActivities.find(x=>x.id===pr.sub_activity_id) : null;
+      const p = App.data.projects.find(x=>x.id===pr.project_id)||{};
+      return [pr.id, a.activity_code||'', s?s.sub_code:'', p.name||'', pr.period, pr.status, pr.percent_complete, pr.actual_expenditure, pr.notes, pr.submitted_by, pr.submitted_at];
+    });
+    filename = 'progress_log.csv';
+  } else if (type === 'subactivities') {
+    headers = ['ID','Sub Code','Activity Code','Description','Category','Planned Budget','Total Spent','% Utilised'];
+    data = App.data.subActivities.map(s => {
+      const a = App.data.activities.find(x=>x.id===s.activity_id)||{};
+      const spent = App.data.progress.filter(x=>x.sub_activity_id===s.id).reduce((sum,x)=>sum+(x.actual_expenditure||0),0);
+      const pct = s.planned_budget ? Math.round(spent/s.planned_budget*100) : 0;
+      return [s.id, s.sub_code, a.activity_code||'', s.description, s.category, s.planned_budget, spent, pct+'%'];
+    });
+    filename = 'sub_activities_spend.csv';
+  } else {
+    headers = ['Project','Funder','Programme Budget','Admin Budget','Total Spent','Balance'];
+    data = App.data.projects.map(p => {
+      const progOuts = App.data.outputs.filter(o=>o.project_id===p.id&&!isAdminOutput(o));
+      const adminOuts = App.data.outputs.filter(o=>o.project_id===p.id&&isAdminOutput(o));
+      const progActs = App.data.activities.filter(a=>a.project_id===p.id&&progOuts.find(o=>o.id===a.output_id));
+      const spent = App.data.progress.filter(x=>progActs.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const progBudget = progOuts.reduce((s,o)=>s+(o.total_budget||0),0);
+      const adminBudget = adminOuts.reduce((s,o)=>s+(o.total_budget||0),0);
+      return [p.name, p.funder, progBudget, adminBudget, spent, progBudget-spent];
+    });
+    filename = 'budget_summary.csv';
+  }
+  const csv = [headers,...data].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  toast('CSV exported ✓','success');
+}
+
+/* ================================================================
+   USERS
+================================================================ */
+function renderUsers() {
+  const rows = App.data.users.map(u=>`<tr>
+    <td>${u.name||'—'}</td><td>${u.email||'—'}</td><td>${u.org||'—'}</td>
+    <td><span class="badge badge-${u.role==='admin'?'planned':u.role==='reporter'?'in-progress':'not-started'}">${u.role}</span></td>
+    <td>${statusBadge(u.status||'active')}</td>
+    <td class="text-small text-muted">${fmtDate(u.created_at)}</td>
+    <td><button class="btn btn-danger btn-xs" onclick="deleteUser('${u.id}')">Remove</button></td>
+  </tr>`).join('');
+  return `
+  <div class="page-header"><div><div class="page-title">Users</div></div><button class="btn btn-primary" onclick="openUserModal()">+ Invite User</button></div>
+  <div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Email</th><th>Org</th><th>Role</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="7" class="text-center text-muted" style="padding:40px">No users.</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+/* ================================================================
+   SETTINGS
+================================================================ */
+function renderSettings() {
+  return `
+  <div class="page-title mb-24">Settings</div>
+  <div class="settings-section">
+    <div class="settings-section-title">Google Sheets Integration</div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Apps Script Web App URL</strong><span>Deployed Web App URL from Google Apps Script.</span></div>
+      <div style="flex:2"><input type="url" class="form-control" id="gs-url-input" value="${App.scriptUrl}" placeholder="https://script.google.com/macros/s/..."></div>
+    </div>
+    <div class="settings-row"><div></div><div class="flex gap-8"><button class="btn btn-primary" onclick="saveGsUrl()">Save</button><button class="btn btn-outline" onclick="syncData()">Test Connection</button></div></div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Admin Output Configuration</div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Excluded from M&E Budget</strong><span>Outputs containing these keywords are automatically excluded from programme monitoring.</span></div>
+      <div style="flex:2;font-size:12px;font-family:monospace;color:var(--gray-700)">${ADMIN_OUTPUT_KEYWORDS.join(', ')}</div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Per-Output Override</strong><span>You can toggle any output's admin status from the Project Detail view.</span></div>
+      <span class="chip">Via project settings</span>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Profile</div>
+    <div class="settings-row"><div class="settings-label"><strong>Name</strong></div><input type="text" class="form-control" id="profile-name" value="${App.user.name||''}" style="flex:2"></div>
+    <div class="settings-row"><div class="settings-label"><strong>Organization</strong></div><input type="text" class="form-control" id="profile-org" value="${App.user.org||''}" style="flex:2"></div>
+    <div class="settings-row"><div class="settings-label"><strong>Role</strong></div><select class="form-control" id="profile-role" style="flex:2"><option value="admin" ${App.user.role==='admin'?'selected':''}>Admin / M&E Officer</option><option value="reporter" ${App.user.role==='reporter'?'selected':''}>Field Reporter</option><option value="viewer">Viewer</option></select></div>
+    <div class="settings-row"><div></div><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Data Management</div>
+    <div class="settings-row"><div class="settings-label"><strong>Load Demo Data</strong><span>Eye Media / UNICEF 2025-2026 workplan with sub-activities.</span></div><button class="btn btn-outline" onclick="loadDemoData()">Load Demo Data</button></div>
+    <div class="settings-row"><div class="settings-label"><strong>Clear Local Data</strong></div><button class="btn btn-danger" onclick="clearLocalData()">Clear</button></div>
+  </div>`;
+}
+
+function saveGsUrl() { App.scriptUrl=document.getElementById('gs-url-input').value.trim(); dbSetSetting('scriptUrl',App.scriptUrl); toast('URL saved ✓','success'); }
+function saveProfile() {
+  App.user.name=document.getElementById('profile-name').value;
+  App.user.org=document.getElementById('profile-org').value;
+  App.user.role=document.getElementById('profile-role').value;
+  dbSetSetting('user',App.user);
+  document.getElementById('user-name-display').textContent=App.user.name;
+  document.getElementById('user-role-display').textContent=App.user.role;
+  document.getElementById('user-avatar').textContent=App.user.name.charAt(0).toUpperCase();
+  toast('Profile updated ✓','success');
+}
+function loadDemoData() {
+  if (!confirm('Load Eye Media demo data with sub-activities?')) return;
+  App.data = JSON.parse(JSON.stringify(DEMO)); saveAllToDb(); renderCurrentView(); toast('Demo data loaded ✓','success');
+}
+function clearLocalData() {
+  if (!confirm('Clear all local data?')) return;
+  App.data={projects:[],outputs:[],activities:[],subActivities:[],progress:[],users:[]};
+  saveAllToDb(); renderCurrentView(); toast('Cleared','warning');
+}
+async function saveAllToDb() {
+  for (const store of ['projects','outputs','activities','subActivities','progress','users'])
+    for (const item of (App.data[store]||[])) await dbPut(store, item);
+}
+
+/* ================================================================
+   MODAL — PROJECT
+================================================================ */
+function openProjectModal(editId) {
+  const p = editId ? App.data.projects.find(x=>x.id===editId) : {};
+  showModal(`<div class="modal modal-lg">
+    <div class="modal-header"><span>📁</span><span class="modal-title">${editId?'Edit':'New'} Project</span><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="proj-id" value="${p.id||''}">
+      <div class="form-grid">
+        <div class="form-group col-span-2"><label class="form-label">Project Name *</label><input type="text" class="form-control" id="proj-name" value="${p.name||''}"></div>
+        <div class="form-group"><label class="form-label">Funder *</label><input type="text" class="form-control" id="proj-funder" value="${p.funder||''}" placeholder="UNICEF South Sudan"></div>
+        <div class="form-group"><label class="form-label">Implementing Partner *</label><input type="text" class="form-control" id="proj-partner" value="${p.partner||''}"></div>
+        <div class="form-group"><label class="form-label">Reference Number</label><input type="text" class="form-control" id="proj-ref" value="${p.ref_number||''}"></div>
+        <div class="form-group"><label class="form-label">Sector</label><input type="text" class="form-control" id="proj-sector" value="${p.sector||''}"></div>
+        <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-control" id="proj-start" value="${p.start_date||''}"></div>
+        <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-control" id="proj-end" value="${p.end_date||''}"></div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group"><label class="form-label">Total Budget (USD)</label><input type="number" class="form-control" id="proj-budget" value="${p.total_budget||''}"></div>
+        <div class="form-group"><label class="form-label">UNICEF Contribution</label><input type="number" class="form-control" id="proj-unicef" value="${p.unicef_budget||''}"></div>
+        <div class="form-group"><label class="form-label">CSO Contribution</label><input type="number" class="form-control" id="proj-cso" value="${p.cso_budget||''}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label><select class="form-control" id="proj-status"><option value="active" ${(p.status||'active')==='active'?'selected':''}>Active</option><option value="closed" ${p.status==='closed'?'selected':''}>Closed</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveProject()">💾 Save</button></div>
+  </div>`);
+}
+function saveProject() {
+  const id = document.getElementById('proj-id').value || uid();
+  const project = { id, name:document.getElementById('proj-name').value.trim(), funder:document.getElementById('proj-funder').value.trim(), partner:document.getElementById('proj-partner').value.trim(), ref_number:document.getElementById('proj-ref').value.trim(), sector:document.getElementById('proj-sector').value.trim(), start_date:document.getElementById('proj-start').value, end_date:document.getElementById('proj-end').value, total_budget:parseFloat(document.getElementById('proj-budget').value)||0, unicef_budget:parseFloat(document.getElementById('proj-unicef').value)||0, cso_budget:parseFloat(document.getElementById('proj-cso').value)||0, status:document.getElementById('proj-status').value, created_at:new Date().toISOString() };
+  if (!project.name || !project.funder) { toast('Name and Funder are required','error'); return; }
+  const idx = App.data.projects.findIndex(x=>x.id===id);
+  if (idx>=0) App.data.projects[idx]=project; else App.data.projects.push(project);
+  dbPut('projects',project); postToSheets('saveProject',project);
+  closeModal(); renderCurrentView(); toast('Project saved ✓','success');
+}
+function editProject(id) { openProjectModal(id); }
+function deleteProject(id) {
+  if (!confirm('Delete this project?')) return;
+  App.data.projects = App.data.projects.filter(x=>x.id!==id); dbDelete('projects',id);
+  renderCurrentView(); toast('Deleted','warning');
+}
+
+/* ================================================================
+   MODAL — OUTPUT
+================================================================ */
+function openOutputModal(projectId) {
+  showModal(`<div class="modal">
+    <div class="modal-header"><span>📋</span><span class="modal-title">Add Output</span><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="out-project-id" value="${projectId}">
+      <div class="form-group"><label class="form-label">Output Code *</label><input type="text" class="form-control" id="out-code" placeholder="Output 1"></div>
+      <div class="form-group"><label class="form-label">Description *</label><textarea class="form-control" id="out-desc" rows="3"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">Output Type</label>
+        <select class="form-control" id="out-is-admin">
+          <option value="false">Programme Output (tracked in M&E)</option>
+          <option value="true">Administrative / Overhead (excluded from M&E)</option>
+        </select>
+        <div class="form-hint">Administrative outputs (e.g. Programme Management, Security) will be excluded from budget monitoring.</div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group"><label class="form-label">Total Budget</label><input type="number" class="form-control" id="out-budget" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">UNICEF</label><input type="number" class="form-control" id="out-unicef" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">CSO</label><input type="number" class="form-control" id="out-cso" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveOutput()">Save Output</button></div>
+  </div>`);
+}
+function saveOutput() {
+  const output = { id:uid(), project_id:document.getElementById('out-project-id').value, output_code:document.getElementById('out-code').value.trim(), description:document.getElementById('out-desc').value.trim(), is_admin:document.getElementById('out-is-admin').value==='true', total_budget:parseFloat(document.getElementById('out-budget').value)||0, unicef_budget:parseFloat(document.getElementById('out-unicef').value)||0, cso_budget:parseFloat(document.getElementById('out-cso').value)||0 };
+  if (!output.output_code || !output.description) { toast('Code and description required','error'); return; }
+  App.data.outputs.push(output); dbPut('outputs',output); postToSheets('saveOutput',output);
+  closeModal(); renderCurrentView(); toast('Output added ✓','success');
+}
+
+/* ================================================================
+   MODAL — SUB-ACTIVITY
+================================================================ */
+function openSubActivityModal(activityId, projectId, editId) {
+  const act = App.data.activities.find(a=>a.id===activityId)||{};
+  const existing = editId ? App.data.subActivities.find(s=>s.id===editId) : {};
+  const s = existing || {};
+  const existingSubs = App.data.subActivities.filter(x=>x.activity_id===activityId);
+  const allocatedBudget = existingSubs.filter(x=>x.id!==editId).reduce((sum,x)=>sum+(x.planned_budget||0),0);
+  const remaining = (act.total_budget||0) - allocatedBudget;
+
+  showModal(`<div class="modal">
+    <div class="modal-header">
+      <span style="color:var(--purple)">🔹</span>
+      <span class="modal-title">${editId?'Edit':'Add'} Sub-Activity</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sa-id" value="${s.id||''}">
+      <input type="hidden" id="sa-activity-id" value="${activityId}">
+      <input type="hidden" id="sa-project-id" value="${projectId}">
+      <div style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:18px;font-size:13px">
+        <strong>${act.activity_code}</strong> — ${(act.description||'').substring(0,80)}…<br>
+        <span class="text-muted text-small">Activity budget: ${fmtMoney(act.total_budget)} · Allocated so far: ${fmtMoney(allocatedBudget)} · Remaining: <strong>${fmtMoney(remaining)}</strong></span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Sub-Activity Code *</label><input type="text" class="form-control" id="sa-code" value="${s.sub_code||act.activity_code+'.'+(existingSubs.length+1)}" placeholder="${act.activity_code}.1"></div>
+        <div class="form-group"><label class="form-label">Category *</label><select class="form-control" id="sa-category">
+          ${SUB_CATEGORIES.map(c=>`<option value="${c}" ${s.category===c?'selected':''}>${c}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description *</label><input type="text" class="form-control" id="sa-desc" value="${s.description||''}" placeholder="e.g. Script writing and translation (8 languages)"></div>
+      <div class="form-group">
+        <label class="form-label">Planned Budget (USD) *</label>
+        <input type="number" class="form-control" id="sa-budget" value="${s.planned_budget||''}" placeholder="0" oninput="checkSubBudget(this.value,${remaining},${s.planned_budget||0})">
+        <div class="form-hint" id="sa-budget-hint">Budget remaining for this activity: <strong>${fmtMoney(remaining)}</strong></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-purple" onclick="saveSubActivity()">💾 Save Sub-Activity</button></div>
+  </div>`);
+}
+
+function checkSubBudget(val, remaining, currentVal) {
+  const entered = parseFloat(val)||0;
+  const hint = document.getElementById('sa-budget-hint');
+  if (!hint) return;
+  const newRemaining = remaining - entered + (currentVal||0);
+  if (entered > remaining + (currentVal||0)) hint.innerHTML = `<span style="color:var(--red);font-weight:700">⚠ Exceeds remaining budget by ${fmtMoney(entered-remaining-(currentVal||0))}</span>`;
+  else hint.innerHTML = `Remaining after this entry: <strong>${fmtMoney(newRemaining)}</strong>`;
+}
+
+function saveSubActivity() {
+  const id = document.getElementById('sa-id').value || uid();
+  const sa = { id, activity_id:document.getElementById('sa-activity-id').value, project_id:document.getElementById('sa-project-id').value, sub_code:document.getElementById('sa-code').value.trim(), description:document.getElementById('sa-desc').value.trim(), category:document.getElementById('sa-category').value, planned_budget:parseFloat(document.getElementById('sa-budget').value)||0, created_at:new Date().toISOString() };
+  if (!sa.sub_code || !sa.description) { toast('Code and description required','error'); return; }
+  const idx = App.data.subActivities.findIndex(x=>x.id===id);
+  if (idx>=0) App.data.subActivities[idx]=sa; else App.data.subActivities.push(sa);
+  dbPut('subActivities',sa); postToSheets('saveSubActivity',sa);
+  closeModal(); renderCurrentView(); toast('Sub-activity saved ✓','success');
+}
+function editSubActivity(id) {
+  const sa = App.data.subActivities.find(x=>x.id===id);
+  if (sa) openSubActivityModal(sa.activity_id, sa.project_id, id);
+}
+function deleteSubActivity(id) {
+  if (!confirm('Delete this sub-activity?')) return;
+  App.data.subActivities = App.data.subActivities.filter(x=>x.id!==id);
+  dbDelete('subActivities',id); renderCurrentView(); toast('Deleted','warning');
+}
+
+/* ================================================================
+   MODAL — PROGRESS (Activity OR Sub-Activity level)
+================================================================ */
+function openProgressModal(activityId, period, subActivityId) {
+  const d = App.data;
+  const progActs = d.activities.filter(a => !isAdminOutput(d.outputs.find(o=>o.id===a.output_id)));
+  const actOpts = progActs.map(a => {
+    const proj = d.projects.find(p=>p.id===a.project_id)||{};
+    return `<option value="${a.id}" ${a.id===activityId?'selected':''}>${a.activity_code} — ${a.description.substring(0,55)} (${proj.name||''})</option>`;
+  }).join('');
+
+  // Sub-activity options for the selected activity
+  const subs = activityId ? d.subActivities.filter(s=>s.activity_id===activityId) : [];
+  const subOpts = `<option value="">— Log at activity level —</option>` +
+    subs.map(s=>`<option value="${s.id}" ${s.id===subActivityId?'selected':''}>${s.sub_code} · ${s.description} (${s.category})</option>`).join('');
+
+  showModal(`<div class="modal modal-lg">
+    <div class="modal-header"><span>📝</span><span class="modal-title">Log Progress Update</span><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Activity *</label>
+        <select class="form-control" id="prog-activity" onchange="refreshSubOpts(this.value)">${actOpts}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sub-Activity <span style="color:var(--gray-500);font-size:11px">— log at this level to capture individual line spend</span></label>
+        <select class="form-control" id="prog-sub-activity" onchange="updateBudgetHint()">${subOpts}</select>
+        <div class="form-hint" id="sub-budget-hint"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Reporting Period *</label>
+          <select class="form-control" id="prog-period">
+            ${['Q1 Y1','Q2 Y1','Q3 Y1','Q4 Y1','Q1 Y2','Q2 Y2','Q3 Y2','Q4 Y2'].map(q=>`<option ${q===period?'selected':''}>${q}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Implementation Status *</label>
+          <select class="form-control" id="prog-status">
+            <option value="planned">Planned</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="delayed">Delayed</option>
+            <option value="not-started">Not Started</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">% Complete</label>
+          <input type="number" class="form-control" id="prog-pct" min="0" max="100" placeholder="0–100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Actual Expenditure (USD) *</label>
+          <input type="number" class="form-control" id="prog-spent" placeholder="0" oninput="updateBudgetHint()">
+          <div class="form-hint" id="spend-hint" style="color:var(--gray-500)">Enter the amount spent on this item in this period.</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Progress Notes *</label>
+        <textarea class="form-control" id="prog-notes" rows="4" placeholder="What was achieved? Any challenges or delays?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Evidence / Document URL</label>
+        <input type="url" class="form-control" id="prog-evidence" placeholder="https://drive.google.com/…">
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveProgress()">💾 Save Progress</button></div>
+  </div>`);
+
+  // Show hint if sub-activity pre-selected
+  if (subActivityId) setTimeout(() => updateBudgetHint(), 100);
+}
+
+function refreshSubOpts(activityId) {
+  const sel = document.getElementById('prog-sub-activity');
+  if (!sel) return;
+  const subs = App.data.subActivities.filter(s=>s.activity_id===activityId);
+  sel.innerHTML = `<option value="">— Log at activity level —</option>` + subs.map(s=>`<option value="${s.id}">${s.sub_code} · ${s.description} (${s.category})</option>`).join('');
+  updateBudgetHint();
+}
+
+function updateBudgetHint() {
+  const subId = document.getElementById('prog-sub-activity')?.value;
+  const spent = parseFloat(document.getElementById('prog-spent')?.value)||0;
+  const hint = document.getElementById('sub-budget-hint');
+  const spendHint = document.getElementById('spend-hint');
+  if (!hint) return;
+  if (!subId) { hint.textContent = ''; return; }
+  const s = App.data.subActivities.find(x=>x.id===subId);
+  if (!s) { hint.textContent = ''; return; }
+  const prevSpent = App.data.progress.filter(x=>x.sub_activity_id===subId).reduce((sum,x)=>sum+(x.actual_expenditure||0),0);
+  const remaining = (s.planned_budget||0) - prevSpent;
+  const color = spent > remaining ? 'var(--red)' : 'var(--green)';
+  hint.innerHTML = `Budget: ${fmtMoney(s.planned_budget)} · Previously spent: ${fmtMoney(prevSpent)} · Remaining: <strong style="color:${color}">${fmtMoney(remaining)}</strong>`;
+  if (spendHint && spent > 0) spendHint.innerHTML = remaining - spent < 0 ? `<span style="color:var(--red);font-weight:700">⚠ This entry will exceed the sub-activity budget by ${fmtMoney(spent-remaining)}</span>` : `<span style="color:var(--green)">After this entry: ${fmtMoney(remaining-spent)} remaining</span>`;
+}
+
+function saveProgress() {
+  const actId = document.getElementById('prog-activity').value;
+  const subId = document.getElementById('prog-sub-activity').value || null;
+  const act = App.data.activities.find(a=>a.id===actId)||{};
+  const entry = { id:uid(), activity_id:actId, sub_activity_id:subId, project_id:act.project_id||'', period:document.getElementById('prog-period').value, status:document.getElementById('prog-status').value, percent_complete:parseInt(document.getElementById('prog-pct').value)||0, actual_expenditure:parseFloat(document.getElementById('prog-spent').value)||0, notes:document.getElementById('prog-notes').value.trim(), evidence_url:document.getElementById('prog-evidence').value.trim(), submitted_by:App.user.name, submitted_at:new Date().toISOString() };
+  if (!entry.notes) { toast('Progress notes required','error'); return; }
+  App.data.progress.push(entry); dbPut('progress',entry); postToSheets('saveProgress',entry);
+  closeModal(); renderCurrentView(); toast('Progress logged ✓','success');
+}
+function deleteProgress(id) {
+  if (!confirm('Delete this entry?')) return;
+  App.data.progress = App.data.progress.filter(x=>x.id!==id);
+  dbDelete('progress',id); renderCurrentView(); toast('Deleted','warning');
+}
+
+/* ================================================================
+   USERS MODAL
+================================================================ */
+function openUserModal() {
+  showModal(`<div class="modal">
+    <div class="modal-header"><span>👤</span><span class="modal-title">Invite User</span><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Full Name *</label><input type="text" class="form-control" id="user-name" placeholder="Jane Doe"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="user-email"></div>
+      <div class="form-group"><label class="form-label">Organization</label><input type="text" class="form-control" id="user-org" placeholder="Eye Media Group"></div>
+      <div class="form-group"><label class="form-label">Role</label><select class="form-control" id="user-role"><option value="admin">Admin / M&E Officer</option><option value="reporter">Field Reporter</option><option value="viewer">Viewer</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveUser()">Add User</button></div>
+  </div>`);
+}
+function saveUser() {
+  const user={id:uid(), name:document.getElementById('user-name').value.trim(), email:document.getElementById('user-email').value.trim(), org:document.getElementById('user-org').value.trim(), role:document.getElementById('user-role').value, status:'active', created_at:new Date().toISOString()};
+  if (!user.name) { toast('Name required','error'); return; }
+  App.data.users.push(user); dbPut('users',user); postToSheets('saveUser',user);
+  closeModal(); renderCurrentView(); toast('User added ✓','success');
+}
+function deleteUser(id) {
+  if (!confirm('Remove user?')) return;
+  App.data.users=App.data.users.filter(x=>x.id!==id); dbDelete('users',id);
+  renderCurrentView(); toast('Removed','warning');
+}
+
+/* ================================================================
+   MISC
+================================================================ */
+function filterTable(query, tableId) {
+  const q = query.toLowerCase();
+  const rows = document.querySelectorAll('#'+tableId+' tbody tr');
+  rows.forEach(tr => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('collapsed');
+}
+
+/* ================================================================
+   SETUP & BOOT
+================================================================ */
+function completeSetup() {
+  const name = document.getElementById('setup-name').value.trim();
+  const org  = document.getElementById('setup-org').value.trim();
+  const role = document.getElementById('setup-role').value;
+  const url  = document.getElementById('setup-url').value.trim();
+  if (!name) { alert('Please enter your name.'); return; }
+  App.user = { id:uid(), name, org, role };
+  App.scriptUrl = url;
+  dbSetSetting('user', App.user);
+  dbSetSetting('scriptUrl', url);
+  dbSetSetting('setupComplete', true);
+  launchApp();
+}
+
+async function launchApp() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-name-display').textContent = App.user.name;
+  document.getElementById('user-role-display').textContent = App.user.role;
+  document.getElementById('user-avatar').textContent = App.user.name.charAt(0).toUpperCase();
+
+  for (const store of ['projects','outputs','activities','subActivities','progress','users']) {
+    const items = await dbGet(store);
+    if (items.length) App.data[store] = items;
+  }
+  if (!App.data.projects.length) {
+    App.data = JSON.parse(JSON.stringify(DEMO));
+    await saveAllToDb();
+  }
+  navigate('dashboard');
+  if (App.scriptUrl) setTimeout(syncData, 1200);
+  else setSyncState('offline');
+}
+
+async function boot() {
+  await initDB();
+  const user = await dbGetSetting('user');
+  const setupDone = await dbGetSetting('setupComplete');
+  const scriptUrl = await dbGetSetting('scriptUrl');
+  if (setupDone && user) {
+    App.user = user; App.scriptUrl = scriptUrl || '';
+    await launchApp();
+  } else {
+    document.getElementById('setup-screen').style.display = 'flex';
+    document.getElementById('setup-name').value = 'Mono Taban';
+    document.getElementById('setup-org').value = 'Eye Media Group';
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
