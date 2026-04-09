@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActivityTrack — M&E Implementation Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN SYSTEM
+============================================================ */
+:root {
+  --navy:       #0D2B4E;
+  --navy-light: #163c6e;
+  --blue:       #1CABE2;
+  --blue-light: #4dc2ec;
+  --blue-bg:    #e8f6fc;
+  --green:      #2ECC71;
+  --green-bg:   #eafaf1;
+  --amber:      #F39C12;
+  --amber-bg:   #fef9e7;
+  --red:        #E74C3C;
+  --red-bg:     #fdedec;
+  --gray-100:   #f8f9fb;
+  --gray-200:   #eef0f5;
+  --gray-300:   #d5d9e4;
+  --gray-500:   #8492a6;
+  --gray-700:   #4a5568;
+  --gray-900:   #1a202c;
+  --white:      #ffffff;
+  --sidebar-w:  260px;
+  --sidebar-collapsed: 72px;
+  --topbar-h:   60px;
+  --radius:     10px;
+  --radius-sm:  6px;
+  --shadow:     0 2px 12px rgba(13,43,78,0.08);
+  --shadow-lg:  0 8px 32px rgba(13,43,78,0.14);
+  --transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--gray-100);
+  color: var(--gray-900);
+  display: flex;
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--navy);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: width 0.25s ease;
+  overflow: hidden;
+}
+#sidebar.collapsed { width: var(--sidebar-collapsed); }
+
+.sidebar-header {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--topbar-h);
+}
+.sidebar-logo {
+  width: 36px; height: 36px;
+  background: var(--blue);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 16px; color: white;
+  flex-shrink: 0;
+}
+.sidebar-title {
+  font-size: 16px; font-weight: 800;
+  color: white; white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+.sidebar-subtitle {
+  font-size: 10px; color: rgba(255,255,255,0.45);
+  white-space: nowrap; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.sidebar-toggle {
+  margin-left: auto; background: none; border: none;
+  color: rgba(255,255,255,0.5); cursor: pointer; padding: 4px;
+  font-size: 18px; flex-shrink: 0;
+}
+.sidebar-toggle:hover { color: white; }
+
+.sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+.nav-section {
+  padding: 14px 16px 4px;
+  font-size: 10px; font-weight: 700;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 1px; text-transform: uppercase;
+  white-space: nowrap;
+}
+#sidebar.collapsed .nav-section { opacity: 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  border-radius: 0;
+  transition: var(--transition);
+  white-space: nowrap;
+  border-left: 3px solid transparent;
+  font-weight: 600;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: white; }
+.nav-item.active {
+  background: rgba(28,171,226,0.15);
+  color: var(--blue-light);
+  border-left-color: var(--blue);
+}
+.nav-icon { font-size: 17px; flex-shrink: 0; width: 20px; text-align: center; }
+.nav-label { font-size: 13.5px; }
+#sidebar.collapsed .nav-label { opacity: 0; width: 0; overflow: hidden; }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; border-radius: var(--radius-sm);
+  padding: 6px 0;
+}
+.sidebar-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+.sidebar-username { font-size: 13px; color: white; font-weight: 600; white-space: nowrap; }
+.sidebar-userrole { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+#sidebar.collapsed .sidebar-username,
+#sidebar.collapsed .sidebar-userrole { display: none; }
+
+/* ============================================================
+   MAIN LAYOUT
+============================================================ */
+#main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: margin-left 0.25s ease;
+}
+#main.collapsed { margin-left: var(--sidebar-collapsed); }
+
+/* ============================================================
+   TOPBAR
+============================================================ */
+#topbar {
+  height: var(--topbar-h);
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  display: flex; align-items: center;
+  padding: 0 28px;
+  gap: 16px;
+  position: sticky; top: 0; z-index: 90;
+  box-shadow: 0 1px 4px rgba(13,43,78,0.06);
+}
+.topbar-breadcrumb {
+  font-size: 13px; color: var(--gray-500); font-weight: 600;
+}
+.topbar-page-title {
+  font-size: 17px; font-weight: 800; color: var(--navy);
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+/* ============================================================
+   CONTENT AREA
+============================================================ */
+#content {
+  flex: 1;
+  padding: 28px;
+  max-width: 1400px;
+}
+
+/* ============================================================
+   CARDS & PANELS
+============================================================ */
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--gray-200);
+}
+.card-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex; align-items: center; gap: 12px;
+}
+.card-title {
+  font-size: 15px; font-weight: 800; color: var(--navy);
+}
+.card-subtitle { font-size: 12px; color: var(--gray-500); margin-left: auto; }
+.card-body { padding: 22px; }
+.card-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-100);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* ============================================================
+   KPI CARDS
+============================================================ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--gray-200);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.kpi-card.blue::before  { background: var(--blue); }
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.amber::before { background: var(--amber); }
+.kpi-card.red::before   { background: var(--red); }
+.kpi-card.navy::before  { background: var(--navy); }
+
+.kpi-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 14px;
+}
+.kpi-card.blue .kpi-icon  { background: var(--blue-bg); }
+.kpi-card.green .kpi-icon { background: var(--green-bg); }
+.kpi-card.amber .kpi-icon { background: var(--amber-bg); }
+.kpi-card.red .kpi-icon   { background: var(--red-bg); }
+.kpi-card.navy .kpi-icon  { background: #e8eef6; }
+
+.kpi-value {
+  font-size: 30px; font-weight: 800; color: var(--navy);
+  line-height: 1; margin-bottom: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.kpi-label { font-size: 12px; color: var(--gray-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-sub { font-size: 12px; color: var(--gray-500); margin-top: 8px; }
+
+/* ============================================================
+   BUTTONS
+============================================================ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; transition: var(--transition);
+  text-decoration: none; white-space: nowrap;
+}
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: #1598c9; }
+.btn-secondary { background: var(--navy); color: white; }
+.btn-secondary:hover { background: var(--navy-light); }
+.btn-outline { background: transparent; color: var(--navy); border: 1.5px solid var(--gray-300); }
+.btn-outline:hover { background: var(--gray-100); border-color: var(--navy); }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #c0392b; }
+.btn-success { background: var(--green); color: white; }
+.btn-success:hover { background: #27ae60; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 4px; }
+.btn-icon { padding: 8px; }
+
+/* ============================================================
+   STATUS BADGES
+============================================================ */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+}
+.badge-not-started { background: var(--gray-200); color: var(--gray-700); }
+.badge-planned     { background: var(--blue-bg);  color: #0d7cb0; }
+.badge-in-progress { background: var(--amber-bg); color: #9a6700; }
+.badge-completed   { background: var(--green-bg); color: #1a8a4e; }
+.badge-delayed     { background: var(--red-bg);   color: #a93226; }
+.badge-on-track    { background: var(--green-bg); color: #1a8a4e; }
+.badge-at-risk     { background: var(--amber-bg); color: #9a6700; }
+.badge-active      { background: var(--blue-bg);  color: #0d7cb0; }
+.badge-closed      { background: var(--gray-200); color: var(--gray-700); }
+
+/* ============================================================
+   TABLES
+============================================================ */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+thead tr { background: var(--gray-100); }
+th {
+  padding: 11px 14px; text-align: left;
+  font-size: 11px; font-weight: 700;
+  color: var(--gray-500); text-transform: uppercase;
+  letter-spacing: 0.6px; border-bottom: 2px solid var(--gray-200);
+  white-space: nowrap;
+}
+td {
+  padding: 12px 14px; border-bottom: 1px solid var(--gray-200);
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f5f7ff; }
+.td-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--navy);
+  font-weight: 500;
+}
+.td-desc { max-width: 320px; }
+.td-desc small { display: block; color: var(--gray-500); margin-top: 2px; font-size: 11px; }
+
+/* ============================================================
+   PROGRESS BAR
+============================================================ */
+.progress-bar {
+  background: var(--gray-200); border-radius: 20px;
+  height: 8px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 20px;
+  background: var(--blue); transition: width 0.4s ease;
+}
+.progress-fill.green { background: var(--green); }
+.progress-fill.amber { background: var(--amber); }
+.progress-fill.red   { background: var(--red); }
+
+/* ============================================================
+   FORM ELEMENTS
+============================================================ */
+.form-group { margin-bottom: 18px; }
+.form-label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.4px; }
+.form-control {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 14px; color: var(--gray-900);
+  background: var(--white); transition: var(--transition);
+}
+.form-control:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(28,171,226,0.12); }
+.form-control:disabled { background: var(--gray-100); color: var(--gray-500); }
+select.form-control { cursor: pointer; }
+textarea.form-control { resize: vertical; min-height: 90px; }
+.form-hint { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.form-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+/* ============================================================
+   MODAL
+============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(13,43,78,0.5); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: white; border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 620px;
+  max-height: 90vh; overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+.modal-lg { max-width: 860px; }
+@keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header {
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex; align-items: center; gap: 12px;
+}
+.modal-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+.modal-close {
+  margin-left: auto; background: none; border: none;
+  font-size: 22px; color: var(--gray-500); cursor: pointer;
+  line-height: 1; padding: 2px;
+}
+.modal-close:hover { color: var(--red); }
+.modal-body { padding: 24px 26px; }
+.modal-footer {
+  padding: 16px 26px;
+  border-top: 1px solid var(--gray-200);
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+
+/* ============================================================
+   QUARTER GRID
+============================================================ */
+.quarter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+.quarter-cell {
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px; font-weight: 700;
+  text-align: center; cursor: pointer;
+  transition: var(--transition);
+  background: white;
+}
+.quarter-cell.planned     { background: var(--blue-bg);  border-color: var(--blue); color: #0d7cb0; }
+.quarter-cell.in-progress { background: var(--amber-bg); border-color: var(--amber); color: #9a6700; }
+.quarter-cell.completed   { background: var(--green-bg); border-color: var(--green); color: #1a8a4e; }
+.quarter-cell.delayed     { background: var(--red-bg);   border-color: var(--red); color: #a93226; }
+.quarter-cell.not-marked  { background: var(--gray-100); border-color: var(--gray-300); color: var(--gray-500); }
+.quarter-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+
+/* ============================================================
+   TABS
+============================================================ */
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--gray-200); margin-bottom: 24px; }
+.tab {
+  padding: 10px 20px; font-size: 13px; font-weight: 700;
+  color: var(--gray-500); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: var(--transition);
+}
+.tab:hover { color: var(--navy); }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ============================================================
+   SEARCH / FILTER BAR
+============================================================ */
+.filter-bar {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
+.search-box {
+  position: relative; flex: 1; min-width: 200px;
+}
+.search-box input {
+  width: 100%; padding: 9px 14px 9px 36px;
+  border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 13px;
+}
+.search-box input:focus { outline: none; border-color: var(--blue); }
+.search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--gray-500); pointer-events: none;
+}
+.filter-select {
+  padding: 9px 14px; border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-sm); font-family: inherit; font-size: 13px;
+  color: var(--gray-700); background: white; cursor: pointer;
+}
+
+/* ============================================================
+   OUTPUT ACCORDION
+============================================================ */
+.output-block {
+  border: 1px solid var(--gray-200); border-radius: var(--radius);
+  margin-bottom: 12px; overflow: hidden;
+}
+.output-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; background: var(--gray-100);
+  cursor: pointer; border-bottom: 1px solid var(--gray-200);
+  user-select: none;
+}
+.output-header:hover { background: #eef2ff; }
+.output-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  background: var(--navy); color: white;
+  padding: 3px 8px; border-radius: 4px;
+  flex-shrink: 0;
+}
+.output-desc {
+  font-size: 13px; font-weight: 700; color: var(--navy);
+  flex: 1; line-height: 1.3;
+}
+.output-toggle { color: var(--gray-500); font-size: 16px; flex-shrink: 0; transition: transform 0.2s; }
+.output-block.open .output-toggle { transform: rotate(180deg); }
+.output-activities { display: none; padding: 4px 0; }
+.output-block.open .output-activities { display: block; }
+.activity-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--gray-200);
+  transition: background 0.15s;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: #f5f7ff; }
+.activity-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--gray-500);
+  min-width: 60px; padding-top: 2px; font-weight: 600;
+}
+.activity-desc { flex: 1; font-size: 13px; color: var(--gray-700); line-height: 1.4; }
+.activity-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ============================================================
+   NOTIFICATIONS / TOASTS
+============================================================ */
+#toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: var(--navy); color: white; padding: 12px 18px;
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  font-size: 13px; font-weight: 600; max-width: 320px;
+  animation: slideLeft 0.3s ease;
+}
+@keyframes slideLeft { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.toast.success { background: var(--green); }
+.toast.error   { background: var(--red); }
+.toast.warning { background: var(--amber); color: #1a1a1a; }
+
+/* ============================================================
+   SYNC STATUS
+============================================================ */
+.sync-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--gray-500); font-weight: 600;
+}
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gray-300);
+}
+.sync-dot.synced   { background: var(--green); }
+.sync-dot.syncing  { background: var(--amber); animation: pulse 1s infinite; }
+.sync-dot.offline  { background: var(--red); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ============================================================
+   SETUP SCREEN
+============================================================ */
+.setup-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  padding: 24px;
+}
+.setup-box {
+  background: white; border-radius: 16px; padding: 40px;
+  width: 100%; max-width: 480px; box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.setup-logo {
+  width: 64px; height: 64px; background: var(--blue);
+  border-radius: 16px; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 900; color: white;
+}
+.setup-title { font-size: 24px; font-weight: 900; color: var(--navy); margin-bottom: 6px; }
+.setup-sub { font-size: 14px; color: var(--gray-500); margin-bottom: 28px; line-height: 1.5; }
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+.empty-state {
+  text-align: center; padding: 56px 24px;
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-title { font-size: 16px; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+
+/* ============================================================
+   PAGE HEADER
+============================================================ */
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.page-title { font-size: 22px; font-weight: 900; color: var(--navy); }
+.page-sub { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+.page-actions { display: flex; gap: 10px; align-items: center; }
+
+/* ============================================================
+   GRID LAYOUTS
+============================================================ */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.col-span-2 { grid-column: span 2; }
+
+/* ============================================================
+   PROJECT CARD
+============================================================ */
+.project-card {
+  background: white; border-radius: var(--radius);
+  border: 1px solid var(--gray-200); box-shadow: var(--shadow);
+  padding: 22px; cursor: pointer; transition: var(--transition);
+}
+.project-card:hover { box-shadow: var(--shadow-lg); border-color: var(--blue); transform: translateY(-1px); }
+.project-funder {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--blue); margin-bottom: 10px;
+}
+.project-name { font-size: 15px; font-weight: 800; color: var(--navy); margin-bottom: 6px; line-height: 1.3; }
+.project-partner { font-size: 12px; color: var(--gray-500); margin-bottom: 14px; }
+.project-progress-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 6px; }
+.project-meta {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-top: 14px;
+}
+.project-meta-item { font-size: 11px; color: var(--gray-500); }
+.project-meta-item strong { display: block; color: var(--gray-900); font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+
+/* ============================================================
+   MISC
+============================================================ */
+.divider { height: 1px; background: var(--gray-200); margin: 20px 0; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: var(--gray-500); }
+.text-small { font-size: 12px; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+.fw-bold { font-weight: 700; }
+.fw-black { font-weight: 900; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.flex  { display: flex; }
+.flex-center { display: flex; align-items: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700;
+  background: var(--gray-200); color: var(--gray-700);
+}
+
+/* Settings panel */
+.settings-section {
+  background: white; border-radius: var(--radius);
+  border: 1px solid var(--gray-200); margin-bottom: 20px;
+}
+.settings-section-title {
+  padding: 16px 22px; font-size: 14px; font-weight: 800;
+  color: var(--navy); border-bottom: 1px solid var(--gray-200);
+}
+.settings-row {
+  padding: 16px 22px; border-bottom: 1px solid var(--gray-200);
+  display: flex; align-items: center; gap: 16px;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label { flex: 1; }
+.settings-label strong { display: block; font-size: 13px; color: var(--gray-900); }
+.settings-label span { font-size: 12px; color: var(--gray-500); }
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+  #sidebar { transform: translateX(-100%); }
+  #sidebar.mobile-open { transform: translateX(0); width: var(--sidebar-w); }
+  #main { margin-left: 0; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<!-- ============================================================
+     LOADING / SETUP SCREENS (shown before app renders)
+============================================================ -->
+<div id="setup-screen" style="display:none">
+  <div class="setup-screen">
+    <div class="setup-box">
+      <div class="setup-logo">AT</div>
+      <div class="setup-title">ActivityTrack</div>
+      <div class="setup-sub">M&E Implementation Monitor<br>Connect your Google Sheets backend to get started.</div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Your Name</label>
+        <input type="text" id="setup-name" class="form-control" placeholder="e.g. Mono Taban">
+      </div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Your Organization</label>
+        <input type="text" id="setup-org" class="form-control" placeholder="e.g. Eye Media Group">
+      </div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Your Role</label>
+        <select id="setup-role" class="form-control">
+          <option value="admin">Admin / M&E Officer</option>
+          <option value="reporter">Field Reporter</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Google Apps Script URL <span style="color:var(--gray-500);font-size:11px">(optional — skip to use demo data)</span></label>
+        <input type="url" id="setup-url" class="form-control" placeholder="https://script.google.com/macros/s/...">
+        <div class="form-hint">Deploy your Apps Script as a Web App and paste the URL here. Leave blank to explore with demo data.</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="completeSetup()">
+        🚀 Launch ActivityTrack
+      </button>
+      <p style="font-size:11px;color:var(--gray-500);margin-top:16px">Funded by UNICEF South Sudan · Eye Media Group</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP
+============================================================ -->
+<div id="app" style="display:none; width:100%">
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">AT</div>
+    <div>
+      <div class="sidebar-title">ActivityTrack</div>
+      <div class="sidebar-subtitle">M&E Monitor</div>
+    </div>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">⇆</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-section">Projects</div>
+    <div class="nav-item" onclick="navigate('projects')">
+      <span class="nav-icon">📁</span>
+      <span class="nav-label">All Projects</span>
+    </div>
+    <div class="nav-item" onclick="navigate('activities')">
+      <span class="nav-icon">✅</span>
+      <span class="nav-label">Activity Tracker</span>
+    </div>
+    <div class="nav-item" onclick="navigate('progress')">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Progress Log</span>
+    </div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item" onclick="navigate('budget')">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Budget Tracker</span>
+    </div>
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" onclick="navigate('reports')">
+      <span class="nav-icon">📄</span>
+      <span class="nav-label">Reports</span>
+    </div>
+    <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="navigate('users')">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Users</span>
+    </div>
+    <div class="nav-item" onclick="navigate('settings')">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user" onclick="navigate('settings')">
+      <div class="sidebar-avatar" id="user-avatar">M</div>
+      <div>
+        <div class="sidebar-username" id="user-name-display">Loading...</div>
+        <div class="sidebar-userrole" id="user-role-display">M&E Officer</div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN AREA -->
+<div id="main">
+  <div id="topbar">
+    <div>
+      <div class="topbar-breadcrumb" id="topbar-breadcrumb">Overview</div>
+      <div class="topbar-page-title" id="topbar-title">Dashboard</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Local</span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="syncData()">🔄 Sync</button>
+      <button class="btn btn-primary btn-sm" id="topbar-action-btn" onclick="handleTopAction()">+ New Project</button>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+</div><!-- #app -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+const App = {
+  user: null,
+  scriptUrl: '',
+  currentView: 'dashboard',
+  currentProject: null,
+  db: null,
+  data: {
+    projects: [],
+    outputs: [],
+    activities: [],
+    progress: [],
+    users: []
+  }
+};
+
+/* ============================================================
+   DEMO DATA (Eye Media / UNICEF 2025-2026)
+============================================================ */
+const DEMO = {
+  projects: [
+    {
+      id: 'p001',
+      name: 'Integrated Community Communication for Lifesaving Behaviour Change',
+      funder: 'UNICEF South Sudan',
+      partner: 'Eye Media Group',
+      ref_number: 'PD-SS-2025-EM-001',
+      sector: 'Communication for Development',
+      start_date: '2025-09-01',
+      end_date: '2026-08-31',
+      total_budget: 825081.50,
+      unicef_budget: 618321.50,
+      cso_budget: 206760,
+      status: 'active',
+      currency: 'USD',
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'p002',
+      name: 'Community Feedback & Accountability Mechanism — South Sudan',
+      funder: 'UNICEF South Sudan',
+      partner: 'Eye Media Group / Spirit FM',
+      ref_number: 'PD-SS-2025-EM-002',
+      sector: 'Accountability to Affected People',
+      start_date: '2025-09-01',
+      end_date: '2026-08-31',
+      total_budget: 340000,
+      unicef_budget: 270000,
+      cso_budget: 70000,
+      status: 'active',
+      currency: 'USD',
+      created_at: new Date().toISOString()
+    }
+  ],
+  outputs: [
+    { id: 'o001', project_id: 'p001', output_code: 'Output 1', description: 'Communities have increased access to integrated information (Health, Nutrition, WASH, Child Protection, Education and Emergency) on positive behaviors and life saving practice for informed decision making.', total_budget: 172200, unicef_budget: 122640, cso_budget: 49560 },
+    { id: 'o002', project_id: 'p001', output_code: 'Output 2', description: 'Communities have access to inclusive feedback mechanisms for informed decision-making and resilience.', total_budget: 79330, unicef_budget: 42130, cso_budget: 37200 },
+    { id: 'o003', project_id: 'p001', output_code: 'Output 3', description: 'Communities have increased access to broadcasting of integrated lifesaving information via partner radio stations across South Sudan.', total_budget: 355680, unicef_budget: 334140, cso_budget: 21540 },
+    { id: 'o004', project_id: 'p001', output_code: 'Output 4', description: 'Programme security risk management is ensured.', total_budget: 15600, unicef_budget: 15600, cso_budget: 0 },
+    { id: 'o005', project_id: 'p001', output_code: 'Output 5', description: 'Effective and efficient programme management.', total_budget: 176400, unicef_budget: 77940, cso_budget: 98460 }
+  ],
+  activities: [
+    // Output 1
+    { id: 'a001', output_id: 'o001', project_id: 'p001', activity_code: 'Act.1.1', description: 'Production of Radio programs: Talkshow, Drama, 1 min PSA Messages (Scripting, Translation, Mastering, Voicing and recording) of integrated life saving messages in different languages.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 102400, unicef_budget: 66800, cso_budget: 35600 },
+    { id: 'a002', output_id: 'o001', project_id: 'p001', activity_code: 'Act.1.2', description: 'Production of 5 min Radio drama series on thematic areas (Scripting, Translating, directing, rehearsing and Mastering) in Simple Arabic, Dinka, Nuer, Shiluk, Bari, Zande, Lotuho and Toposa.', q1_y1:1, q2_y1:0, q3_y1:1, q4_y1:0, total_budget: 69800, unicef_budget: 55840, cso_budget: 13960 },
+    // Output 2
+    { id: 'a003', output_id: 'o002', project_id: 'p001', activity_code: 'Act.2.1', description: 'Establishment and management of community feedback mechanisms through Eye Radio Listener Call-in platform and regional outreach stations.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 54000, unicef_budget: 16800, cso_budget: 37200 },
+    { id: 'a004', output_id: 'o002', project_id: 'p001', activity_code: 'Act.2.2', description: 'Training of 35 Journalists (10 per region: greater Barh el Ghazal, greater Equatoria and greater Upper Nile) on documentation of UNICEF thematic areas (Health, Nutrition, WASH, Education and CP).', q1_y1:0, q2_y1:1, q3_y1:0, q4_y1:0, total_budget: 25330, unicef_budget: 25330, cso_budget: 0 },
+    // Output 3
+    { id: 'a005', output_id: 'o003', project_id: 'p001', activity_code: 'Act.3.1', description: 'Eye Radio live Broadcast of talkshow with call-ins and airing of spots.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 73400, unicef_budget: 51860, cso_budget: 21540 },
+    { id: 'a006', output_id: 'o003', project_id: 'p001', activity_code: 'Act.3.2', description: '26 Radio stations in South Sudan airing spots/jingles on integrated thematic messages.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 212040, unicef_budget: 212040, cso_budget: 0 },
+    { id: 'a007', output_id: 'o003', project_id: 'p001', activity_code: 'Act.3.3', description: '16 Radio stations in South Sudan airing Drama episodes on integrated thematic messages.', q1_y1:1, q2_y1:1, q3_y1:0, q4_y1:1, total_budget: 10240, unicef_budget: 10240, cso_budget: 0 },
+    { id: 'a008', output_id: 'o003', project_id: 'p001', activity_code: 'Act.3.4', description: '20 Radio stations in South Sudan airing Talk shows on Integrated life saving thematic areas.', q1_y1:0, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 60000, unicef_budget: 60000, cso_budget: 0 },
+    // Output 4
+    { id: 'a009', output_id: 'o004', project_id: 'p001', activity_code: 'Act.4.1', description: 'Salaries for security guards ensuring programme safety.', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 12000, unicef_budget: 12000, cso_budget: 0 },
+    { id: 'a010', output_id: 'o004', project_id: 'p001', activity_code: 'Act.4.2', description: 'Communication assets to support the programme.', q1_y1:1, q2_y1:0, q3_y1:0, q4_y1:0, total_budget: 3600, unicef_budget: 3600, cso_budget: 0 },
+    // Output 5
+    { id: 'a011', output_id: 'o005', project_id: 'p001', activity_code: 'Act.5.1', description: 'In-country management & support staff (representation, planning, coordination, logistics, admin, finance).', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 120000, unicef_budget: 40800, cso_budget: 79200 },
+    { id: 'a012', output_id: 'o005', project_id: 'p001', activity_code: 'Act.5.2', description: 'Operational costs (office space, equipment, office supplies, maintenance).', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 18000, unicef_budget: 4500, cso_budget: 13500 },
+    { id: 'a013', output_id: 'o005', project_id: 'p001', activity_code: 'Act.5.3', description: 'Planning, monitoring, evaluation and communication (venue, travels, reporting).', q1_y1:1, q2_y1:1, q3_y1:1, q4_y1:1, total_budget: 38400, unicef_budget: 32640, cso_budget: 5760 }
+  ],
+  progress: [
+    { id: 'pr001', activity_id: 'a001', project_id: 'p001', period: 'Q1 Y1', status: 'completed', percent_complete: 100, actual_expenditure: 25600, notes: 'All Q1 radio production scripts completed. 48 PSA messages recorded in 6 languages.', evidence_url: '', submitted_by: 'Mono Taban', submitted_at: '2025-11-30T10:00:00Z' },
+    { id: 'pr002', activity_id: 'a003', project_id: 'p001', period: 'Q1 Y1', status: 'completed', percent_complete: 100, actual_expenditure: 13500, notes: 'Feedback call-in platform launched on Eye Radio. 847 feedback entries received in Q1.', evidence_url: '', submitted_by: 'Mono Taban', submitted_at: '2025-11-30T10:00:00Z' },
+    { id: 'pr003', activity_id: 'a005', project_id: 'p001', period: 'Q1 Y1', status: 'completed', percent_complete: 100, actual_expenditure: 18350, notes: 'Live talkshows on Health, WASH and Nutrition broadcast weekly from Eye Radio Juba.', evidence_url: '', submitted_by: 'Mono Taban', submitted_at: '2025-11-30T10:00:00Z' },
+    { id: 'pr004', activity_id: 'a001', project_id: 'p001', period: 'Q2 Y1', status: 'in-progress', percent_complete: 65, actual_expenditure: 0, notes: 'Drama scripting for Q2 underway. 3 of 5 episodes completed.', evidence_url: '', submitted_by: 'Mono Taban', submitted_at: '2026-02-28T10:00:00Z' },
+    { id: 'pr005', activity_id: 'a004', project_id: 'p001', period: 'Q2 Y1', status: 'delayed', percent_complete: 0, actual_expenditure: 0, notes: 'Journalist training postponed due to accessibility challenges in Upper Nile region. Rescheduled to Q3.', evidence_url: '', submitted_by: 'Mono Taban', submitted_at: '2026-02-28T10:00:00Z' }
+  ],
+  users: [
+    { id: 'u001', name: 'Mono Taban', org: 'Eye Media Group', role: 'admin', status: 'active', created_at: new Date().toISOString() }
+  ]
+};
+
+/* ============================================================
+   INDEXEDDB
+============================================================ */
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ActivityTrackDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      ['projects','outputs','activities','progress','users'].forEach(store => {
+        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: 'id' });
+      });
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+    };
+    req.onsuccess = e => { App.db = e.target.result; resolve(App.db); };
+    req.onerror = e => reject(e);
+  });
+}
+
+function dbGet(store) {
+  return new Promise((resolve) => {
+    if (!App.db) return resolve([]);
+    const tx = App.db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = e => resolve(e.target.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+function dbPut(store, item) {
+  return new Promise((resolve) => {
+    if (!App.db) return resolve();
+    const tx = App.db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(item);
+    tx.oncomplete = resolve;
+    tx.onerror = resolve;
+  });
+}
+
+function dbDelete(store, id) {
+  return new Promise((resolve) => {
+    if (!App.db) return resolve();
+    const tx = App.db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = resolve;
+  });
+}
+
+function dbGetSetting(key) {
+  return new Promise((resolve) => {
+    if (!App.db) return resolve(null);
+    const tx = App.db.transaction('settings', 'readonly');
+    const req = tx.objectStore('settings').get(key);
+    req.onsuccess = e => resolve(e.target.result ? e.target.result.value : null);
+    req.onerror = () => resolve(null);
+  });
+}
+
+function dbSetSetting(key, value) {
+  return new Promise((resolve) => {
+    if (!App.db) return resolve();
+    const tx = App.db.transaction('settings', 'readwrite');
+    tx.objectStore('settings').put({ key, value });
+    tx.oncomplete = resolve;
+    tx.onerror = resolve;
+  });
+}
+
+/* ============================================================
+   GOOGLE SHEETS SYNC (JSONP pattern)
+============================================================ */
+function syncData() {
+  if (!App.scriptUrl) {
+    toast('No Apps Script URL configured. Using local data.', 'warning');
+    return;
+  }
+  setSyncState('syncing');
+  const url = `${App.scriptUrl}?action=getAll&callback=syncCallback&t=${Date.now()}`;
+  const script = document.createElement('script');
+  script.src = url;
+  script.onerror = () => {
+    setSyncState('offline');
+    toast('Sync failed — working offline', 'error');
+    document.head.removeChild(script);
+  };
+  document.head.appendChild(script);
+  setTimeout(() => {
+    if (document.head.contains(script)) {
+      document.head.removeChild(script);
+      setSyncState('offline');
+    }
+  }, 10000);
+}
+
+window.syncCallback = async function(data) {
+  if (!data || data.error) { setSyncState('offline'); return; }
+  for (const store of ['projects','outputs','activities','progress','users']) {
+    if (data[store]) {
+      App.data[store] = data[store];
+      for (const item of data[store]) await dbPut(store, item);
+    }
+  }
+  setSyncState('synced');
+  toast('Synced with Google Sheets ✓', 'success');
+  renderCurrentView();
+};
+
+function postToSheets(action, payload, callback) {
+  if (!App.scriptUrl) { if (callback) callback({success:true, local:true}); return; }
+  const callbackName = 'cb_' + Date.now();
+  const url = `${App.scriptUrl}?action=${action}&data=${encodeURIComponent(JSON.stringify(payload))}&callback=${callbackName}&t=${Date.now()}`;
+  window[callbackName] = (res) => {
+    delete window[callbackName];
+    if (callback) callback(res);
+  };
+  const s = document.createElement('script');
+  s.src = url;
+  s.onerror = () => { document.head.removeChild(s); if (callback) callback({success:false}); };
+  document.head.appendChild(s);
+  setTimeout(() => { if (document.head.contains(s)) document.head.removeChild(s); }, 8000);
+}
+
+function setSyncState(state) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (!dot || !label) return;
+  dot.className = 'sync-dot ' + state;
+  label.textContent = state === 'synced' ? 'Synced' : state === 'syncing' ? 'Syncing…' : state === 'offline' ? 'Offline' : 'Local';
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); }
+
+function toast(msg, type='info', duration=3500) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+function fmtMoney(n) {
+  return '$' + (n||0).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function fmtPercent(n) { return (n||0) + '%'; }
+
+function statusBadge(status) {
+  const map = {
+    'not-started': ['badge-not-started', '○ Not Started'],
+    'planned':     ['badge-planned',     '◈ Planned'],
+    'in-progress': ['badge-in-progress', '◉ In Progress'],
+    'completed':   ['badge-completed',   '✓ Completed'],
+    'delayed':     ['badge-delayed',     '⚠ Delayed'],
+    'active':      ['badge-active',      '● Active'],
+    'closed':      ['badge-closed',      '■ Closed'],
+    'on-track':    ['badge-on-track',    '↑ On Track'],
+    'at-risk':     ['badge-at-risk',     '! At Risk'],
+  };
+  const [cls, label] = map[status] || ['badge-not-started', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function closeModal() {
+  const m = document.getElementById('modal-root');
+  if (m) m.remove();
+}
+
+function showModal(html) {
+  closeModal();
+  const div = document.createElement('div');
+  div.id = 'modal-root';
+  div.className = 'modal-overlay';
+  div.innerHTML = html;
+  div.addEventListener('click', e => { if (e.target === div) closeModal(); });
+  document.body.appendChild(div);
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+function navigate(view, params) {
+  App.currentView = view;
+  if (params) App.navParams = params; else App.navParams = {};
+  // Update sidebar active
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navMap = { dashboard:0, projects:1, activities:2, progress:3, budget:4, reports:5, users:6, settings:7 };
+  const navItems = document.querySelectorAll('.nav-item');
+  const views = ['dashboard','projects','activities','progress','budget','reports','users','settings'];
+  const idx = views.indexOf(view);
+  if (idx >= 0 && navItems[idx]) navItems[idx].classList.add('active');
+
+  // Topbar update
+  const titles = {
+    dashboard:  ['Overview', 'Dashboard'],
+    projects:   ['Projects', 'All Projects'],
+    activities: ['Projects', 'Activity Tracker'],
+    progress:   ['Projects', 'Progress Log'],
+    budget:     ['Finance', 'Budget Tracker'],
+    reports:    ['Reports', 'Reports & Exports'],
+    users:      ['Admin', 'User Management'],
+    settings:   ['Admin', 'Settings'],
+    project_detail: ['Projects', 'Project Detail'],
+  };
+  const [bread, title] = titles[view] || ['', view];
+  document.getElementById('topbar-breadcrumb').textContent = bread;
+  document.getElementById('topbar-title').textContent = title;
+
+  // Action button
+  const actionMap = {
+    dashboard: ['+ New Project', null],
+    projects:  ['+ New Project', 'openProjectModal'],
+    activities:['+ Log Progress', 'openProgressModal'],
+    progress:  ['+ Log Progress', 'openProgressModal'],
+    budget:    ['', null],
+    reports:   ['📥 Export', 'exportReport'],
+    users:     ['+ Invite User', 'openUserModal'],
+    settings:  ['', null],
+  };
+  const [btnLabel, btnFn] = actionMap[view] || ['', null];
+  const btn = document.getElementById('topbar-action-btn');
+  btn.textContent = btnLabel;
+  btn.style.display = btnLabel ? '' : 'none';
+  btn._fn = btnFn;
+
+  renderCurrentView();
+}
+
+function handleTopAction() {
+  const btn = document.getElementById('topbar-action-btn');
+  const fn = btn._fn;
+  if (fn && window[fn]) window[fn]();
+  else if (fn === 'openProjectModal') openProjectModal();
+  else if (fn === 'openProgressModal') openProgressModal();
+  else if (fn === 'openUserModal') openUserModal();
+  else if (fn === 'exportReport') exportReport();
+}
+
+function renderCurrentView() {
+  const view = App.currentView;
+  const el = document.getElementById('content');
+  if (view === 'dashboard')      el.innerHTML = renderDashboard();
+  else if (view === 'projects')  el.innerHTML = renderProjects();
+  else if (view === 'activities') el.innerHTML = renderActivities();
+  else if (view === 'progress')  el.innerHTML = renderProgress();
+  else if (view === 'budget')    el.innerHTML = renderBudget();
+  else if (view === 'reports')   el.innerHTML = renderReports();
+  else if (view === 'users')     el.innerHTML = renderUsers();
+  else if (view === 'settings')  el.innerHTML = renderSettings();
+  else if (view === 'project_detail') el.innerHTML = renderProjectDetail(App.navParams.projectId);
+  attachViewHandlers();
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function renderDashboard() {
+  const projects = App.data.projects;
+  const activities = App.data.activities;
+  const progress = App.data.progress;
+
+  const totalProjects = projects.length;
+  const activeProjects = projects.filter(p => p.status === 'active').length;
+  const totalActivities = activities.length;
+  const completedProgress = progress.filter(p => p.status === 'completed').length;
+  const delayedProgress = progress.filter(p => p.status === 'delayed').length;
+  const totalBudget = projects.reduce((s,p) => s + (p.total_budget||0), 0);
+  const activityRate = totalActivities ? Math.round(completedProgress / (completedProgress + progress.filter(x=>x.status==='in-progress').length || 1) * 100) : 0;
+
+  const recentProgress = [...progress].sort((a,b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
+
+  const projectCards = projects.map(p => {
+    const pActivities = activities.filter(a => a.project_id === p.id);
+    const pProgress = progress.filter(x => x.project_id === p.id);
+    const pCompleted = pProgress.filter(x => x.status === 'completed').length;
+    const pTotal = pProgress.length || 1;
+    const pct = Math.round(pCompleted / pTotal * 100);
+
+    return `
+    <div class="project-card" onclick="navigate('project_detail', {projectId:'${p.id}'})">
+      <div class="project-funder">${p.funder}</div>
+      <div class="project-name">${p.name}</div>
+      <div class="project-partner">👥 ${p.partner}</div>
+      <div class="project-progress-label">
+        <span>Implementation Progress</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill ${pct>=80?'green':pct>=50?'':pct>=25?'amber':'red'}" style="width:${pct}%"></div>
+      </div>
+      <div class="project-meta">
+        <div class="project-meta-item"><strong>${fmtMoney(p.total_budget)}</strong>Total Budget</div>
+        <div class="project-meta-item"><strong>${fmtDate(p.start_date)} – ${fmtDate(p.end_date)}</strong>Period</div>
+        <div class="project-meta-item"><strong>${pActivities.length}</strong>Activities</div>
+        <div class="project-meta-item">${statusBadge(p.status)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const recentRows = recentProgress.map(pr => {
+    const act = App.data.activities.find(a => a.id === pr.activity_id) || {};
+    const proj = App.data.projects.find(p => p.id === pr.project_id) || {};
+    return `<tr>
+      <td class="td-code">${act.activity_code||'—'}</td>
+      <td class="td-desc"><span>${(act.description||'').substring(0,80)}${(act.description||'').length>80?'…':''}</span><small>${proj.name||''}</small></td>
+      <td>${pr.period}</td>
+      <td>${statusBadge(pr.status)}</td>
+      <td class="text-right">${pr.percent_complete||0}%</td>
+      <td class="text-right text-muted text-small">${fmtDate(pr.submitted_at)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-icon">📁</div>
+      <div class="kpi-value">${totalProjects}</div>
+      <div class="kpi-label">Total Projects</div>
+      <div class="kpi-sub">${activeProjects} active</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-value">${totalActivities}</div>
+      <div class="kpi-label">Total Activities</div>
+      <div class="kpi-sub">${completedProgress} updates logged</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-value">${delayedProgress}</div>
+      <div class="kpi-label">Delayed Items</div>
+      <div class="kpi-sub">Requiring attention</div>
+    </div>
+    <div class="kpi-card navy">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-value">${fmtMoney(totalBudget)}</div>
+      <div class="kpi-label">Total Budget</div>
+      <div class="kpi-sub">Across all projects</div>
+    </div>
+  </div>
+
+  <div class="page-header">
+    <div><div class="page-title">Active Projects</div><div class="page-sub">Click a project to view outputs and activities</div></div>
+    <button class="btn btn-primary" onclick="openProjectModal()">+ New Project</button>
+  </div>
+  <div class="grid-auto mb-24">${projectCards || '<p class="text-muted">No projects yet.</p>'}</div>
+
+  <div class="card">
+    <div class="card-header">
+      <span>📝</span>
+      <span class="card-title">Recent Progress Updates</span>
+      <span class="card-subtitle"><button class="btn btn-outline btn-sm" onclick="navigate('progress')">View All</button></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Activity</th><th>Description</th><th>Period</th><th>Status</th><th class="text-right">% Done</th><th class="text-right">Date</th></tr></thead>
+        <tbody>${recentRows || '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">No progress entries yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   PROJECTS LIST
+============================================================ */
+function renderProjects() {
+  const rows = App.data.projects.map(p => {
+    const pActs = App.data.activities.filter(a => a.project_id === p.id).length;
+    const pProg = App.data.progress.filter(x => x.project_id === p.id);
+    const pct = pProg.length ? Math.round(pProg.filter(x=>x.status==='completed').length / pProg.length * 100) : 0;
+    return `<tr>
+      <td class="td-code">${p.ref_number||'—'}</td>
+      <td class="td-desc"><strong>${p.name}</strong><small>${p.funder} · ${p.partner}</small></td>
+      <td>${p.sector||'—'}</td>
+      <td>${fmtDate(p.start_date)}</td>
+      <td>${fmtDate(p.end_date)}</td>
+      <td class="font-mono">${fmtMoney(p.total_budget)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="text-small text-muted">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge(p.status)}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="navigate('project_detail',{projectId:'${p.id}'})">View</button>
+        <button class="btn btn-outline btn-xs" onclick="editProject('${p.id}')">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${p.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">All Projects</div><div class="page-sub">${App.data.projects.length} project(s) registered</div></div>
+    <button class="btn btn-primary" onclick="openProjectModal()">+ New Project</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Ref</th><th>Project</th><th>Sector</th><th>Start</th><th>End</th><th>Budget</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="9" class="text-center text-muted" style="padding:40px">No projects yet. Click "+ New Project" to add one.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   PROJECT DETAIL
+============================================================ */
+function renderProjectDetail(projectId) {
+  const p = App.data.projects.find(x => x.id === projectId);
+  if (!p) return '<p class="text-muted">Project not found.</p>';
+
+  const outputs = App.data.outputs.filter(o => o.project_id === projectId);
+  const allActs = App.data.activities.filter(a => a.project_id === projectId);
+
+  document.getElementById('topbar-title').textContent = p.name.substring(0,50) + (p.name.length>50?'…':'');
+  document.getElementById('topbar-breadcrumb').textContent = 'Projects';
+
+  const outputBlocks = outputs.map(o => {
+    const acts = App.data.activities.filter(a => a.output_id === o.id);
+    const actRows = acts.map(a => {
+      const progEntries = App.data.progress.filter(x => x.activity_id === a.id);
+      const latestProg = progEntries.sort((x,y) => new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+      const status = latestProg ? latestProg.status : 'not-started';
+      const pct = latestProg ? (latestProg.percent_complete||0) : 0;
+
+      const quarters = ['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i) => {
+        const label = ['Q1','Q2','Q3','Q4'][i] + ' Y1';
+        const planned = a[q];
+        if (!planned) return `<span class="quarter-cell not-marked">${['Q1','Q2','Q3','Q4'][i]}<br><span class="quarter-label">Y1</span></span>`;
+        const qProg = progEntries.find(x => x.period === label);
+        const qStatus = qProg ? qProg.status : 'planned';
+        return `<span class="quarter-cell ${qStatus}" onclick="openProgressModal('${a.id}','${label}')">${['Q1','Q2','Q3','Q4'][i]}<br><span class="quarter-label">Y1</span></span>`;
+      }).join('');
+
+      return `<div class="activity-row">
+        <div class="activity-code">${a.activity_code}</div>
+        <div class="activity-desc">${a.description}</div>
+        <div class="activity-meta">
+          <div class="quarter-grid" style="grid-template-columns:repeat(4,44px);gap:4px">${quarters}</div>
+          ${statusBadge(status)}
+          <span class="text-small text-muted font-mono">${pct}%</span>
+          <button class="btn btn-primary btn-xs" onclick="openProgressModal('${a.id}','')">+ Log</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    const oProg = App.data.progress.filter(x => acts.find(a=>a.id===x.activity_id));
+    const oCompleted = oProg.filter(x=>x.status==='completed').length;
+    const oPct = oProg.length ? Math.round(oCompleted/oProg.length*100) : 0;
+
+    return `<div class="output-block open" id="out_${o.id}">
+      <div class="output-header" onclick="toggleOutput('${o.id}')">
+        <span class="output-code">${o.output_code}</span>
+        <span class="output-desc">${o.description}</span>
+        <span class="text-small text-muted font-mono" style="white-space:nowrap">${fmtMoney(o.total_budget)}</span>
+        <div class="progress-bar" style="width:80px;flex-shrink:0"><div class="progress-fill" style="width:${oPct}%"></div></div>
+        <span class="text-small text-muted">${oPct}%</span>
+        <span class="output-toggle">▾</span>
+      </div>
+      <div class="output-activities">${actRows || '<div style="padding:16px 18px;color:var(--gray-500);font-size:13px">No activities for this output.</div>'}</div>
+    </div>`;
+  }).join('');
+
+  // Summary stats
+  const allProgress = App.data.progress.filter(x => x.project_id === projectId);
+  const budgetUsed = allProgress.reduce((s,x) => s+(x.actual_expenditure||0), 0);
+  const budgetPct = p.total_budget ? Math.round(budgetUsed/p.total_budget*100) : 0;
+
+  return `
+  <div class="flex-between mb-24">
+    <div>
+      <button class="btn btn-outline btn-sm" onclick="navigate('projects')" style="margin-bottom:10px">← Back to Projects</button>
+      <div class="page-title">${p.name}</div>
+      <div class="page-sub">${p.funder} · Ref: ${p.ref_number||'N/A'} · ${fmtDate(p.start_date)} – ${fmtDate(p.end_date)}</div>
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-outline btn-sm" onclick="openOutputModal('${p.id}')">+ Add Output</button>
+      <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+    <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${outputs.length}</div><div class="kpi-label">Outputs</div></div>
+    <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${allActs.length}</div><div class="kpi-label">Activities</div></div>
+    <div class="kpi-card amber"><div class="kpi-icon">💰</div><div class="kpi-value">${fmtMoney(p.total_budget)}</div><div class="kpi-label">Total Budget</div></div>
+    <div class="kpi-card navy">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-value">${budgetPct}%</div>
+      <div class="kpi-label">Budget Utilised</div>
+      <div class="progress-bar mt-8"><div class="progress-fill" style="width:${budgetPct}%"></div></div>
+    </div>
+  </div>
+
+  <div class="page-header">
+    <div class="page-title" style="font-size:16px">Outputs & Activities</div>
+    <div class="flex gap-8 text-small text-muted">
+      <span class="badge badge-planned">Planned</span>
+      <span class="badge badge-in-progress">In Progress</span>
+      <span class="badge badge-completed">Completed</span>
+      <span class="badge badge-delayed">Delayed</span>
+    </div>
+  </div>
+
+  ${outputBlocks || '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No outputs yet</div><div class="empty-sub">Add outputs and activities to start tracking.</div><button class="btn btn-primary" onclick="openOutputModal(\''+p.id+'\')">+ Add Output</button></div>'}`;
+}
+
+function toggleOutput(id) {
+  const el = document.getElementById('out_' + id);
+  if (el) el.classList.toggle('open');
+}
+
+/* ============================================================
+   ACTIVITY TRACKER
+============================================================ */
+function renderActivities() {
+  const projectFilter = App.navParams.projectId || '';
+  const projects = App.data.projects;
+  const allActivities = App.data.activities;
+
+  const projectOpts = projects.map(p => `<option value="${p.id}" ${p.id===projectFilter?'selected':''}>${p.name.substring(0,50)}</option>`).join('');
+
+  const displayActs = projectFilter ? allActivities.filter(a=>a.project_id===projectFilter) : allActivities;
+
+  const rows = displayActs.map(a => {
+    const prog = App.data.progress.filter(x=>x.activity_id===a.id);
+    const latest = prog.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+    const status = latest ? latest.status : 'not-started';
+    const pct = latest ? (latest.percent_complete||0) : 0;
+    const proj = App.data.projects.find(p=>p.id===a.project_id)||{};
+    const out = App.data.outputs.find(o=>o.id===a.output_id)||{};
+    const delayed = prog.filter(x=>x.status==='delayed').length;
+
+    const quarters = ['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i) => {
+      const label = ['Q1','Q2','Q3','Q4'][i]+' Y1';
+      if (!a[q]) return '<span style="color:var(--gray-300)">·</span>';
+      const qp = prog.find(x=>x.period===label);
+      const qs = qp ? qp.status : 'planned';
+      const colors = {'planned':'#1CABE2','in-progress':'#F39C12','completed':'#2ECC71','delayed':'#E74C3C','not-started':'#ccc'};
+      return `<span title="${label}: ${qs}" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${colors[qs]||'#ccc'};cursor:pointer" onclick="openProgressModal('${a.id}','${label}')"></span>`;
+    }).join(' ');
+
+    return `<tr>
+      <td class="td-code">${a.activity_code}</td>
+      <td class="td-desc"><span>${a.description.substring(0,90)}${a.description.length>90?'…':''}</span><small>${proj.name||''} · ${out.output_code||''}</small></td>
+      <td>${quarters}</td>
+      <td>${statusBadge(status)}</td>
+      <td>
+        <div class="flex-center gap-8">
+          <div class="progress-bar" style="width:70px"><div class="progress-fill ${pct>=80?'green':pct>=50?'':pct>=25?'amber':'red'}" style="width:${pct}%"></div></div>
+          <span class="text-small font-mono">${pct}%</span>
+        </div>
+      </td>
+      <td class="font-mono text-small">${fmtMoney(a.total_budget)}</td>
+      ${delayed ? `<td><span class="badge badge-delayed">⚠ ${delayed} delay(s)</span></td>` : '<td>—</td>'}
+      <td><button class="btn btn-primary btn-xs" onclick="openProgressModal('${a.id}','')">+ Log</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Activity Tracker</div><div class="page-sub">${displayActs.length} activities across ${projects.length} projects</div></div>
+    <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+  </div>
+  <div class="filter-bar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Search activities…" oninput="filterActivities(this.value)" id="act-search">
+    </div>
+    <select class="filter-select" onchange="App.navParams.projectId=this.value;renderCurrentView()" id="proj-filter">
+      <option value="">All Projects</option>
+      ${projectOpts}
+    </select>
+    <select class="filter-select" id="status-filter">
+      <option value="">All Statuses</option>
+      <option>not-started</option><option>planned</option><option>in-progress</option><option>completed</option><option>delayed</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table id="activities-table">
+        <thead><tr><th>Code</th><th>Activity</th><th>Quarters</th><th>Status</th><th>Progress</th><th>Budget</th><th>Flags</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="8" class="text-center text-muted" style="padding:40px">No activities found.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   PROGRESS LOG
+============================================================ */
+function renderProgress() {
+  const allProg = [...App.data.progress].sort((a,b) => new Date(b.submitted_at)-new Date(a.submitted_at));
+
+  const rows = allProg.map(pr => {
+    const act = App.data.activities.find(a=>a.id===pr.activity_id)||{};
+    const proj = App.data.projects.find(p=>p.id===pr.project_id)||{};
+    return `<tr>
+      <td class="td-code">${act.activity_code||'—'}</td>
+      <td class="td-desc"><span>${(act.description||'').substring(0,80)}…</span><small>${proj.name||''}</small></td>
+      <td><span class="chip">${pr.period||'—'}</span></td>
+      <td>${statusBadge(pr.status)}</td>
+      <td>
+        <div class="flex-center gap-8">
+          <div class="progress-bar" style="width:70px"><div class="progress-fill ${(pr.percent_complete||0)>=80?'green':'amber'}" style="width:${pr.percent_complete||0}%"></div></div>
+          <span class="font-mono text-small">${pr.percent_complete||0}%</span>
+        </div>
+      </td>
+      <td class="font-mono text-small">${pr.actual_expenditure ? fmtMoney(pr.actual_expenditure) : '—'}</td>
+      <td class="text-small">${(pr.notes||'').substring(0,60)}${(pr.notes||'').length>60?'…':''}</td>
+      <td class="text-small text-muted">${pr.submitted_by||'—'}</td>
+      <td class="text-small text-muted">${fmtDate(pr.submitted_at)}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editProgress('${pr.id}')">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProgress('${pr.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Progress Log</div><div class="page-sub">${allProg.length} entries recorded</div></div>
+    <button class="btn btn-primary" onclick="openProgressModal('','')">+ Log Progress</button>
+  </div>
+  <div class="filter-bar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Search progress entries…">
+    </div>
+    <select class="filter-select">
+      <option value="">All Projects</option>
+      ${App.data.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,40)}</option>`).join('')}
+    </select>
+    <select class="filter-select">
+      <option value="">All Statuses</option>
+      <option>completed</option><option>in-progress</option><option>delayed</option><option>planned</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Code</th><th>Activity</th><th>Period</th><th>Status</th><th>Progress</th><th>Spent</th><th>Notes</th><th>By</th><th>Date</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="10" class="text-center text-muted" style="padding:40px">No progress entries yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   BUDGET TRACKER
+============================================================ */
+function renderBudget() {
+  const projects = App.data.projects;
+
+  const projectRows = projects.map(p => {
+    const pActs = App.data.activities.filter(a=>a.project_id===p.id);
+    const pProg = App.data.progress.filter(x=>x.project_id===p.id);
+    const spent = pProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const pct = p.total_budget ? Math.round(spent/p.total_budget*100) : 0;
+    const balance = (p.total_budget||0) - spent;
+
+    return `
+    <div class="card mb-16">
+      <div class="card-header">
+        <span class="output-code">${p.ref_number||'PRJ'}</span>
+        <span class="card-title">${p.name}</span>
+        <span class="card-subtitle">${statusBadge(p.status)}</span>
+      </div>
+      <div class="card-body">
+        <div class="grid-3 mb-16">
+          <div class="kpi-card navy" style="margin:0">
+            <div class="kpi-label">Total Budget</div>
+            <div class="kpi-value" style="font-size:20px">${fmtMoney(p.total_budget)}</div>
+          </div>
+          <div class="kpi-card ${spent>0?'amber':'blue'}" style="margin:0">
+            <div class="kpi-label">Actual Expenditure</div>
+            <div class="kpi-value" style="font-size:20px">${fmtMoney(spent)}</div>
+            <div class="kpi-sub">${pct}% utilised</div>
+          </div>
+          <div class="kpi-card ${balance<0?'red':'green'}" style="margin:0">
+            <div class="kpi-label">Remaining Balance</div>
+            <div class="kpi-value" style="font-size:20px">${fmtMoney(balance)}</div>
+          </div>
+        </div>
+        <div class="progress-bar" style="height:12px;margin-bottom:8px">
+          <div class="progress-fill ${pct>=90?'red':pct>=70?'amber':'green'}" style="width:${Math.min(pct,100)}%"></div>
+        </div>
+        <div class="flex-between text-small text-muted">
+          <span>Expenditure: ${fmtMoney(spent)} / ${fmtMoney(p.total_budget)}</span>
+          <span>UNICEF: ${fmtMoney(p.unicef_budget)} · CSO: ${fmtMoney(p.cso_budget)}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Output</th><th>Description</th><th>Budget</th><th>UNICEF</th><th>CSO</th><th>Spent</th><th>Balance</th></tr></thead>
+            <tbody>
+              ${App.data.outputs.filter(o=>o.project_id===p.id).map(o => {
+                const oActs = App.data.activities.filter(a=>a.output_id===o.id);
+                const oProg = App.data.progress.filter(x=>oActs.find(a=>a.id===x.activity_id));
+                const oSpent = oProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+                const oBal = (o.total_budget||0)-oSpent;
+                return `<tr>
+                  <td class="td-code">${o.output_code}</td>
+                  <td class="td-desc">${o.description.substring(0,80)}…</td>
+                  <td class="font-mono">${fmtMoney(o.total_budget)}</td>
+                  <td class="font-mono">${fmtMoney(o.unicef_budget)}</td>
+                  <td class="font-mono">${fmtMoney(o.cso_budget)}</td>
+                  <td class="font-mono ${oSpent>0?'':'text-muted'}">${fmtMoney(oSpent)}</td>
+                  <td class="font-mono ${oBal<0?'':'text-muted'}">${fmtMoney(oBal)}</td>
+                </tr>`;
+              }).join('') || '<tr><td colspan="7" class="text-muted text-center" style="padding:16px">No outputs.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Budget Tracker</div><div class="page-sub">Planned vs actual expenditure across all projects</div></div>
+  </div>
+  ${projectRows || '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">No projects yet</div></div>'}`;
+}
+
+/* ============================================================
+   REPORTS
+============================================================ */
+function renderReports() {
+  return `
+  <div class="page-header">
+    <div><div class="page-title">Reports & Exports</div><div class="page-sub">Generate implementation reports for submission to funders</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><span>📊</span><span class="card-title">Quarterly Progress Report</span></div>
+      <div class="card-body">
+        <p class="text-muted mb-16" style="font-size:13px">Generate a detailed activity-by-activity progress report for a selected quarter, ready for UNICEF submission.</p>
+        <div class="form-group">
+          <label class="form-label">Project</label>
+          <select class="form-control" id="rpt-project">
+            ${App.data.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,50)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Quarter</label>
+            <select class="form-control" id="rpt-quarter">
+              <option>Q1 Y1</option><option>Q2 Y1</option><option>Q3 Y1</option><option>Q4 Y1</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select class="form-control">
+              <option>Summary Table</option>
+              <option>Detailed Narrative</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>📥</span><span class="card-title">Export Data</span></div>
+      <div class="card-body">
+        <p class="text-muted mb-16" style="font-size:13px">Export your project data as CSV for offline analysis or reporting.</p>
+        <div class="form-group">
+          <label class="form-label">Data to Export</label>
+          <select class="form-control" id="export-type">
+            <option value="progress">Progress Log</option>
+            <option value="activities">Activities</option>
+            <option value="budget">Budget Summary</option>
+            <option value="all">All Data</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" onclick="exportCSV()">📥 Export CSV</button>
+      </div>
+    </div>
+  </div>
+  <div id="report-output" class="mt-24"></div>`;
+}
+
+function generateReport() {
+  const projectId = document.getElementById('rpt-project').value;
+  const quarter = document.getElementById('rpt-quarter').value;
+  const p = App.data.projects.find(x=>x.id===projectId);
+  if (!p) return;
+  const acts = App.data.activities.filter(a=>a.project_id===projectId);
+
+  const rows = acts.map(a => {
+    const pr = App.data.progress.find(x=>x.activity_id===a.id && x.period===quarter);
+    const out = App.data.outputs.find(o=>o.id===a.output_id)||{};
+    return `<tr>
+      <td class="td-code">${a.activity_code}</td>
+      <td class="td-desc">${a.description.substring(0,100)}</td>
+      <td>${out.output_code||'—'}</td>
+      <td>${pr ? statusBadge(pr.status) : statusBadge('not-started')}</td>
+      <td class="font-mono">${pr ? (pr.percent_complete||0) + '%' : '0%'}</td>
+      <td class="font-mono">${fmtMoney(a.total_budget)}</td>
+      <td class="font-mono">${pr ? fmtMoney(pr.actual_expenditure) : '—'}</td>
+      <td class="text-small">${pr ? (pr.notes||'') : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('report-output').innerHTML = `
+  <div class="card">
+    <div class="card-header">
+      <span>📊</span>
+      <span class="card-title">Progress Report — ${quarter}</span>
+      <span class="card-subtitle">${p.name} · ${p.funder}</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted text-small mb-16">Generated: ${new Date().toLocaleString()} · Partner: ${p.partner} · Ref: ${p.ref_number||'N/A'}</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Code</th><th>Activity</th><th>Output</th><th>Status</th><th>% Done</th><th>Budget</th><th>Spent</th><th>Notes</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="card-footer">
+      <button class="btn btn-outline btn-sm" onclick="printSection('report-output')">🖨 Print</button>
+    </div>
+  </div>`;
+}
+
+function printSection(id) {
+  const el = document.getElementById(id);
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>ActivityTrack Report</title><style>body{font-family:sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5;font-weight:600}</style></head><body>');
+  w.document.write(el.innerHTML);
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  const type = document.getElementById('export-type').value;
+  let data, filename, headers;
+  if (type === 'progress') {
+    headers = ['ID','Activity ID','Project ID','Period','Status','% Complete','Actual Expenditure','Notes','Submitted By','Submitted At'];
+    data = App.data.progress.map(p => [p.id,p.activity_id,p.project_id,p.period,p.status,p.percent_complete,p.actual_expenditure,p.notes,p.submitted_by,p.submitted_at]);
+    filename = 'progress_log.csv';
+  } else if (type === 'activities') {
+    headers = ['ID','Project ID','Output ID','Code','Description','Total Budget','UNICEF Budget','CSO Budget'];
+    data = App.data.activities.map(a => [a.id,a.project_id,a.output_id,a.activity_code,a.description,a.total_budget,a.unicef_budget,a.cso_budget]);
+    filename = 'activities.csv';
+  } else {
+    headers = ['Project','Funder','Total Budget','UNICEF Budget','CSO Budget','Start','End','Status'];
+    data = App.data.projects.map(p => [p.name,p.funder,p.total_budget,p.unicef_budget,p.cso_budget,p.start_date,p.end_date,p.status]);
+    filename = 'projects.csv';
+  }
+  const csv = [headers, ...data].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  toast('CSV exported ✓', 'success');
+}
+
+/* ============================================================
+   USERS
+============================================================ */
+function renderUsers() {
+  const rows = App.data.users.map(u => `<tr>
+    <td>${u.name||'—'}</td>
+    <td>${u.email||'—'}</td>
+    <td>${u.org||'—'}</td>
+    <td><span class="badge badge-${u.role==='admin'?'planned':u.role==='reporter'?'in-progress':'not-started'}">${u.role||'viewer'}</span></td>
+    <td>${statusBadge(u.status||'active')}</td>
+    <td class="text-small text-muted">${fmtDate(u.created_at)}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="editUser('${u.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteUser('${u.id}')">Remove</button>
+    </td>
+  </tr>`).join('');
+
+  return `
+  <div class="page-header">
+    <div><div class="page-title">User Management</div><div class="page-sub">${App.data.users.length} users registered</div></div>
+    <button class="btn btn-primary" onclick="openUserModal()">+ Invite User</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Organization</th><th>Role</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="7" class="text-center text-muted" style="padding:40px">No users yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+function renderSettings() {
+  return `
+  <div class="page-title mb-24">Settings</div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Google Sheets Integration</div>
+    <div class="settings-row">
+      <div class="settings-label">
+        <strong>Apps Script Web App URL</strong>
+        <span>The deployed Google Apps Script URL that connects to your Google Sheets backend.</span>
+      </div>
+      <div style="flex:2">
+        <input type="url" class="form-control" id="gs-url-input" value="${App.scriptUrl}" placeholder="https://script.google.com/macros/s/...">
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        <strong>Sync Status</strong>
+        <span>Last synced or connection state.</span>
+      </div>
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot-settings"></div>
+        <span>${App.scriptUrl ? 'Configured' : 'Not configured (demo mode)'}</span>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div></div>
+      <div class="flex gap-8">
+        <button class="btn btn-primary" onclick="saveGsUrl()">Save URL</button>
+        <button class="btn btn-outline" onclick="syncData()">Test Connection</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Profile</div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Name</strong></div>
+      <input type="text" class="form-control" id="profile-name" value="${App.user.name||''}" style="flex:2">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Organization</strong></div>
+      <input type="text" class="form-control" id="profile-org" value="${App.user.org||''}" style="flex:2">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Role</strong></div>
+      <select class="form-control" id="profile-role" style="flex:2">
+        <option value="admin" ${App.user.role==='admin'?'selected':''}>Admin / M&E Officer</option>
+        <option value="reporter" ${App.user.role==='reporter'?'selected':''}>Field Reporter</option>
+        <option value="viewer" ${App.user.role==='viewer'?'selected':''}>Viewer</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div></div>
+      <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Data Management</div>
+    <div class="settings-row">
+      <div class="settings-label">
+        <strong>Load Demo Data</strong>
+        <span>Populate the system with Eye Media / UNICEF 2025-2026 sample data.</span>
+      </div>
+      <button class="btn btn-outline" onclick="loadDemoData()">Load Demo Data</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        <strong>Clear All Local Data</strong>
+        <span>Removes all locally cached data. Google Sheets data is unaffected.</span>
+      </div>
+      <button class="btn btn-danger" onclick="clearLocalData()">Clear Local Data</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">About</div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>System</strong><span>ActivityTrack M&E Implementation Monitor</span></div>
+      <span class="chip">v1.0.0</span>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Built for</strong><span>Eye Media Group · UNICEF South Sudan</span></div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label"><strong>Architecture</strong><span>GitHub Pages · Google Sheets · Apps Script</span></div>
+    </div>
+  </div>`;
+}
+
+function saveGsUrl() {
+  App.scriptUrl = document.getElementById('gs-url-input').value.trim();
+  dbSetSetting('scriptUrl', App.scriptUrl);
+  toast('Apps Script URL saved ✓', 'success');
+}
+
+function saveProfile() {
+  App.user.name = document.getElementById('profile-name').value;
+  App.user.org  = document.getElementById('profile-org').value;
+  App.user.role = document.getElementById('profile-role').value;
+  dbSetSetting('user', App.user);
+  document.getElementById('user-name-display').textContent = App.user.name;
+  document.getElementById('user-role-display').textContent = App.user.role;
+  document.getElementById('user-avatar').textContent = App.user.name.charAt(0).toUpperCase();
+  toast('Profile updated ✓', 'success');
+}
+
+function loadDemoData() {
+  if (!confirm('This will load sample Eye Media / UNICEF data. Continue?')) return;
+  App.data = JSON.parse(JSON.stringify(DEMO));
+  saveAllToDb();
+  renderCurrentView();
+  toast('Demo data loaded ✓', 'success');
+}
+
+function clearLocalData() {
+  if (!confirm('Clear all local data? This cannot be undone.')) return;
+  App.data = { projects:[], outputs:[], activities:[], progress:[], users:[] };
+  saveAllToDb();
+  renderCurrentView();
+  toast('Local data cleared', 'warning');
+}
+
+async function saveAllToDb() {
+  for (const store of ['projects','outputs','activities','progress','users']) {
+    for (const item of (App.data[store]||[])) await dbPut(store, item);
+  }
+}
+
+/* ============================================================
+   MODALS — PROJECT
+============================================================ */
+function openProjectModal(editId) {
+  const p = editId ? App.data.projects.find(x=>x.id===editId) : {};
+  showModal(`
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span>📁</span>
+      <span class="modal-title">${editId?'Edit':'New'} Project</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="proj-id" value="${p.id||''}">
+      <div class="form-grid">
+        <div class="form-group col-span-2">
+          <label class="form-label">Project Name *</label>
+          <input type="text" class="form-control" id="proj-name" value="${p.name||''}" placeholder="Full project title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Funder / Donor *</label>
+          <input type="text" class="form-control" id="proj-funder" value="${p.funder||''}" placeholder="e.g. UNICEF South Sudan">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Implementing Partner *</label>
+          <input type="text" class="form-control" id="proj-partner" value="${p.partner||''}" placeholder="e.g. Eye Media Group">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reference Number</label>
+          <input type="text" class="form-control" id="proj-ref" value="${p.ref_number||''}" placeholder="PD-SS-2025-EM-001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sector / Thematic Area</label>
+          <input type="text" class="form-control" id="proj-sector" value="${p.sector||''}" placeholder="e.g. Communication for Development">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="proj-start" value="${p.start_date||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Date</label>
+          <input type="date" class="form-control" id="proj-end" value="${p.end_date||''}">
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">Total Budget (USD)</label>
+          <input type="number" class="form-control" id="proj-budget" value="${p.total_budget||''}" placeholder="825000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">UNICEF Contribution</label>
+          <input type="number" class="form-control" id="proj-unicef" value="${p.unicef_budget||''}" placeholder="618000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">CSO / IP Contribution</label>
+          <input type="number" class="form-control" id="proj-cso" value="${p.cso_budget||''}" placeholder="207000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-control" id="proj-status">
+          <option value="active" ${(p.status||'active')==='active'?'selected':''}>Active</option>
+          <option value="closed" ${p.status==='closed'?'selected':''}>Closed</option>
+          <option value="on-hold" ${p.status==='on-hold'?'selected':''}>On Hold</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject()">💾 Save Project</button>
+    </div>
+  </div>`);
+}
+
+function saveProject() {
+  const id = document.getElementById('proj-id').value || uid();
+  const project = {
+    id, name: document.getElementById('proj-name').value.trim(),
+    funder: document.getElementById('proj-funder').value.trim(),
+    partner: document.getElementById('proj-partner').value.trim(),
+    ref_number: document.getElementById('proj-ref').value.trim(),
+    sector: document.getElementById('proj-sector').value.trim(),
+    start_date: document.getElementById('proj-start').value,
+    end_date: document.getElementById('proj-end').value,
+    total_budget: parseFloat(document.getElementById('proj-budget').value)||0,
+    unicef_budget: parseFloat(document.getElementById('proj-unicef').value)||0,
+    cso_budget: parseFloat(document.getElementById('proj-cso').value)||0,
+    status: document.getElementById('proj-status').value,
+    created_at: new Date().toISOString()
+  };
+  if (!project.name || !project.funder) { toast('Name and Funder are required', 'error'); return; }
+  const idx = App.data.projects.findIndex(x=>x.id===id);
+  if (idx >= 0) App.data.projects[idx] = project; else App.data.projects.push(project);
+  dbPut('projects', project);
+  postToSheets('saveProject', project);
+  closeModal();
+  renderCurrentView();
+  toast('Project saved ✓', 'success');
+}
+
+function editProject(id) { openProjectModal(id); }
+
+function deleteProject(id) {
+  if (!confirm('Delete this project? This cannot be undone.')) return;
+  App.data.projects = App.data.projects.filter(x=>x.id!==id);
+  dbDelete('projects', id);
+  renderCurrentView();
+  toast('Project deleted', 'warning');
+}
+
+/* ============================================================
+   MODALS — OUTPUT
+============================================================ */
+function openOutputModal(projectId) {
+  showModal(`
+  <div class="modal">
+    <div class="modal-header">
+      <span>📋</span>
+      <span class="modal-title">Add Output</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="out-project-id" value="${projectId}">
+      <div class="form-group">
+        <label class="form-label">Output Code *</label>
+        <input type="text" class="form-control" id="out-code" placeholder="e.g. Output 1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Output Description *</label>
+        <textarea class="form-control" id="out-desc" rows="3" placeholder="Communities have increased access to…"></textarea>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">Total Budget</label>
+          <input type="number" class="form-control" id="out-budget" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">UNICEF Contribution</label>
+          <input type="number" class="form-control" id="out-unicef" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">CSO Contribution</label>
+          <input type="number" class="form-control" id="out-cso" placeholder="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOutput()">Save Output</button>
+    </div>
+  </div>`);
+}
+
+function saveOutput() {
+  const projectId = document.getElementById('out-project-id').value;
+  const output = {
+    id: uid(),
+    project_id: projectId,
+    output_code: document.getElementById('out-code').value.trim(),
+    description: document.getElementById('out-desc').value.trim(),
+    total_budget: parseFloat(document.getElementById('out-budget').value)||0,
+    unicef_budget: parseFloat(document.getElementById('out-unicef').value)||0,
+    cso_budget: parseFloat(document.getElementById('out-cso').value)||0,
+  };
+  if (!output.output_code || !output.description) { toast('Code and description required', 'error'); return; }
+  App.data.outputs.push(output);
+  dbPut('outputs', output);
+  postToSheets('saveOutput', output);
+  closeModal();
+  renderCurrentView();
+  toast('Output added ✓', 'success');
+}
+
+/* ============================================================
+   MODALS — PROGRESS
+============================================================ */
+function openProgressModal(activityId, period) {
+  const actOpts = App.data.activities.map(a => {
+    const proj = App.data.projects.find(p=>p.id===a.project_id)||{};
+    return `<option value="${a.id}" ${a.id===activityId?'selected':''}>${a.activity_code} — ${a.description.substring(0,60)} (${proj.name||''})</option>`;
+  }).join('');
+
+  showModal(`
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span>📝</span>
+      <span class="modal-title">Log Progress Update</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Activity *</label>
+        <select class="form-control" id="prog-activity">${actOpts}</select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Reporting Period *</label>
+          <select class="form-control" id="prog-period">
+            ${['Q1 Y1','Q2 Y1','Q3 Y1','Q4 Y1','Q1 Y2','Q2 Y2','Q3 Y2','Q4 Y2'].map(q=>`<option ${q===period?'selected':''}>${q}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Implementation Status *</label>
+          <select class="form-control" id="prog-status">
+            <option value="planned">Planned</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="delayed">Delayed</option>
+            <option value="not-started">Not Started</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">% Complete</label>
+          <input type="number" class="form-control" id="prog-pct" min="0" max="100" placeholder="0-100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Actual Expenditure (USD)</label>
+          <input type="number" class="form-control" id="prog-spent" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Progress Notes *</label>
+        <textarea class="form-control" id="prog-notes" rows="4" placeholder="Describe what was achieved, challenges encountered, and next steps…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Evidence / Supporting Document URL</label>
+        <input type="url" class="form-control" id="prog-evidence" placeholder="https://drive.google.com/…">
+        <div class="form-hint">Link to photos, reports, or other evidence of implementation.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProgress()">💾 Save Progress</button>
+    </div>
+  </div>`);
+}
+
+function saveProgress() {
+  const actId = document.getElementById('prog-activity').value;
+  const act = App.data.activities.find(a=>a.id===actId)||{};
+  const entry = {
+    id: uid(),
+    activity_id: actId,
+    project_id: act.project_id||'',
+    period: document.getElementById('prog-period').value,
+    status: document.getElementById('prog-status').value,
+    percent_complete: parseInt(document.getElementById('prog-pct').value)||0,
+    actual_expenditure: parseFloat(document.getElementById('prog-spent').value)||0,
+    notes: document.getElementById('prog-notes').value.trim(),
+    evidence_url: document.getElementById('prog-evidence').value.trim(),
+    submitted_by: App.user.name,
+    submitted_at: new Date().toISOString()
+  };
+  if (!entry.notes) { toast('Progress notes are required', 'error'); return; }
+  App.data.progress.push(entry);
+  dbPut('progress', entry);
+  postToSheets('saveProgress', entry);
+  closeModal();
+  renderCurrentView();
+  toast('Progress logged ✓', 'success');
+}
+
+function editProgress(id) {
+  const pr = App.data.progress.find(x=>x.id===id);
+  if (!pr) return;
+  openProgressModal(pr.activity_id, pr.period);
+  // Pre-fill will be handled by the modal on next tick
+}
+
+function deleteProgress(id) {
+  if (!confirm('Delete this progress entry?')) return;
+  App.data.progress = App.data.progress.filter(x=>x.id!==id);
+  dbDelete('progress', id);
+  renderCurrentView();
+  toast('Entry deleted', 'warning');
+}
+
+/* ============================================================
+   MODALS — USER
+============================================================ */
+function openUserModal() {
+  showModal(`
+  <div class="modal">
+    <div class="modal-header">
+      <span>👤</span><span class="modal-title">Invite User</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input type="text" class="form-control" id="user-name" placeholder="e.g. Jane Doe">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" id="user-email" placeholder="jane@example.org">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Organization</label>
+        <input type="text" class="form-control" id="user-org" placeholder="Eye Media Group">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-control" id="user-role">
+          <option value="admin">Admin / M&E Officer</option>
+          <option value="reporter">Field Reporter</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">Add User</button>
+    </div>
+  </div>`);
+}
+
+function saveUser() {
+  const user = {
+    id: uid(),
+    name: document.getElementById('user-name').value.trim(),
+    email: document.getElementById('user-email').value.trim(),
+    org: document.getElementById('user-org').value.trim(),
+    role: document.getElementById('user-role').value,
+    status: 'active',
+    created_at: new Date().toISOString()
+  };
+  if (!user.name) { toast('Name is required', 'error'); return; }
+  App.data.users.push(user);
+  dbPut('users', user);
+  postToSheets('saveUser', user);
+  closeModal();
+  renderCurrentView();
+  toast('User added ✓', 'success');
+}
+
+function deleteUser(id) {
+  if (!confirm('Remove this user?')) return;
+  App.data.users = App.data.users.filter(x=>x.id!==id);
+  dbDelete('users', id);
+  renderCurrentView();
+  toast('User removed', 'warning');
+}
+
+function editUser(id) { toast('Edit user — coming soon', 'warning'); }
+
+/* ============================================================
+   MISC HANDLERS
+============================================================ */
+function filterActivities(query) {
+  const q = query.toLowerCase();
+  const rows = document.querySelectorAll('#activities-table tbody tr');
+  rows.forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const m = document.getElementById('main');
+  s.classList.toggle('collapsed');
+  m.classList.toggle('collapsed');
+}
+
+function exportReport() { navigate('reports'); }
+
+function attachViewHandlers() {
+  // Nothing needed beyond onclick inline handlers
+}
+
+/* ============================================================
+   SETUP
+============================================================ */
+function completeSetup() {
+  const name = document.getElementById('setup-name').value.trim();
+  const org  = document.getElementById('setup-org').value.trim();
+  const role = document.getElementById('setup-role').value;
+  const url  = document.getElementById('setup-url').value.trim();
+  if (!name) { alert('Please enter your name.'); return; }
+  App.user = { id: uid(), name, org, role };
+  App.scriptUrl = url;
+  dbSetSetting('user', App.user);
+  dbSetSetting('scriptUrl', url);
+  dbSetSetting('setupComplete', true);
+  launchApp();
+}
+
+async function launchApp() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-name-display').textContent = App.user.name;
+  document.getElementById('user-role-display').textContent = App.user.role;
+  document.getElementById('user-avatar').textContent = App.user.name.charAt(0).toUpperCase();
+
+  // Load all stores from IndexedDB
+  for (const store of ['projects','outputs','activities','progress','users']) {
+    const items = await dbGet(store);
+    if (items.length) App.data[store] = items;
+  }
+
+  // If no data yet, load demo
+  if (!App.data.projects.length) {
+    App.data = JSON.parse(JSON.stringify(DEMO));
+    await saveAllToDb();
+  }
+
+  navigate('dashboard');
+  if (App.scriptUrl) setTimeout(syncData, 1200);
+  else setSyncState('offline');
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+async function boot() {
+  await initDB();
+  const user = await dbGetSetting('user');
+  const setupDone = await dbGetSetting('setupComplete');
+  const scriptUrl = await dbGetSetting('scriptUrl');
+  if (setupDone && user) {
+    App.user = user;
+    App.scriptUrl = scriptUrl || '';
+    await launchApp();
+  } else {
+    document.getElementById('setup-screen').style.display = 'flex';
+    // pre-fill demo values
+    document.getElementById('setup-name').value = 'Mono Taban';
+    document.getElementById('setup-org').value = 'Eye Media Group';
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
