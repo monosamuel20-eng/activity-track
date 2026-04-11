@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActivityTrack — M&E Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --navy:#0D2B4E;--navy-light:#163c6e;--blue:#1CABE2;--blue-bg:#e8f6fc;
+  --green:#2ECC71;--green-bg:#eafaf1;--amber:#F39C12;--amber-bg:#fef9e7;
+  --red:#E74C3C;--red-bg:#fdedec;--purple:#8B5CF6;--purple-bg:#f5f3ff;
+  --gray-100:#f8f9fb;--gray-200:#eef0f5;--gray-300:#d5d9e4;
+  --gray-500:#8492a6;--gray-700:#4a5568;--gray-900:#1a202c;--white:#fff;
+  --sw:268px;--sc:72px;--th:60px;
+  --r:10px;--rs:6px;
+  --sh:0 2px 12px rgba(13,43,78,.08);--shl:0 8px 32px rgba(13,43,78,.14);
+  --tr:all .2s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito Sans',sans-serif;background:var(--gray-100);color:var(--gray-900);display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── AUTH SCREEN ── */
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:20px}
+.auth-box{background:white;border-radius:18px;padding:40px;width:100%;max-width:420px;box-shadow:var(--shl);text-align:center}
+.auth-logo{width:60px;height:60px;background:var(--blue);border-radius:14px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:white}
+.auth-title{font-size:22px;font-weight:900;color:var(--navy);margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--gray-500);margin-bottom:26px;line-height:1.5}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--gray-500);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--gray-200)}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-500);font-size:16px;padding:4px}
+.pw-toggle:hover{color:var(--navy)}
+.pw-wrap{position:relative}
+.demo-btn{background:none;border:none;color:var(--blue);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:6px}
+.demo-btn:hover{text-decoration:underline}
+.auth-error{background:var(--red-bg);color:var(--red);border-radius:var(--rs);padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;display:none}
+
+/* ── SIDEBAR ── */
+#sidebar{width:var(--sw);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:width .25s ease;overflow:hidden}
+#sidebar.collapsed{width:var(--sc)}
+.sb-head{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;min-height:var(--th)}
+.sb-logo{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:white;flex-shrink:0}
+.sb-title{font-size:15px;font-weight:800;color:white;white-space:nowrap}
+.sb-sub{font-size:10px;color:rgba(255,255,255,.4);white-space:nowrap;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.sb-toggle{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0}
+.sb-toggle:hover{color:white}
+.sb-nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-sec{padding:14px 16px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+#sidebar.collapsed .nav-sec{opacity:0}
+.ni{display:flex;align-items:center;gap:12px;padding:10px 16px;color:rgba(255,255,255,.6);cursor:pointer;border-left:3px solid transparent;font-weight:600;transition:var(--tr);white-space:nowrap}
+.ni:hover{background:rgba(255,255,255,.06);color:white}
+.ni.active{background:rgba(28,171,226,.15);color:#4dc2ec;border-left-color:var(--blue)}
+.ni-icon{font-size:17px;flex-shrink:0;width:20px;text-align:center}
+.ni-label{font-size:13px}
+#sidebar.collapsed .ni-label{opacity:0;width:0;overflow:hidden}
+.sb-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.sb-user{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 0}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0}
+.sb-uname{font-size:13px;color:white;font-weight:600;white-space:nowrap}
+.sb-urole{font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
+#sidebar.collapsed .sb-uname,#sidebar.collapsed .sb-urole{display:none}
+
+/* ── MAIN LAYOUT ── */
+#main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s ease}
+#main.collapsed{margin-left:var(--sc)}
+#topbar{height:var(--th);background:white;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:90;box-shadow:0 1px 4px rgba(13,43,78,.06)}
+.tb-bread{font-size:12px;color:var(--gray-500);font-weight:600}
+.tb-title{font-size:17px;font-weight:800;color:var(--navy)}
+.tb-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+#content{flex:1;padding:28px;max-width:1400px}
+
+/* ── CARDS ── */
+.card{background:white;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--gray-200)}
+.ch{padding:16px 22px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px}
+.ct{font-size:15px;font-weight:800;color:var(--navy);flex:1}
+.cb{padding:22px}
+.cf{padding:14px 22px;border-top:1px solid var(--gray-200);background:var(--gray-100);border-radius:0 0 var(--r) var(--r)}
+
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:white;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--gray-200);padding:20px 20px 18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.blue::before{background:var(--blue)}.kpi.green::before{background:var(--green)}
+.kpi.amber::before{background:var(--amber)}.kpi.red::before{background:var(--red)}
+.kpi.navy::before{background:var(--navy)}.kpi.purple::before{background:var(--purple)}
+.kpi-ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+.kpi.blue .kpi-ic{background:var(--blue-bg)}.kpi.green .kpi-ic{background:var(--green-bg)}
+.kpi.amber .kpi-ic{background:var(--amber-bg)}.kpi.red .kpi-ic{background:var(--red-bg)}
+.kpi.navy .kpi-ic{background:#e8eef6}.kpi.purple .kpi-ic{background:var(--purple-bg)}
+.kpi-val{font-size:26px;font-weight:900;color:var(--navy);line-height:1;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+.kpi-lbl{font-size:11px;color:var(--gray-500);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.kpi-sub{font-size:11px;color:var(--gray-500);margin-top:6px}
+
+/* ── CHART AREA ── */
+.chart-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px}
+.chart-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:24px}
+.chart-card{background:white;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--gray-200);padding:20px}
+.chart-title{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.chart-sub{font-size:11px;color:var(--gray-500);margin-bottom:16px}
+.chart-canvas-wrap{position:relative;height:220px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--rs);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:var(--tr);white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(--blue);color:white}.btn-primary:hover{background:#1598c9}
+.btn-navy{background:var(--navy);color:white}.btn-navy:hover{background:var(--navy-light)}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--gray-300)}.btn-outline:hover{background:var(--gray-100);border-color:var(--navy)}
+.btn-danger{background:var(--red);color:white}.btn-danger:hover{background:#c0392b}
+.btn-green{background:var(--green);color:white}.btn-green:hover{background:#27ae60}
+.btn-purple{background:var(--purple);color:white}.btn-purple:hover{background:#7c3aed}
+.btn-sm{padding:5px 12px;font-size:12px}.btn-xs{padding:3px 8px;font-size:11px;border-radius:4px}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.b-ns{background:var(--gray-200);color:var(--gray-700)}
+.b-pl{background:var(--blue-bg);color:#0d7cb0}
+.b-ip{background:var(--amber-bg);color:#9a6700}
+.b-co{background:var(--green-bg);color:#1a8a4e}
+.b-de{background:var(--red-bg);color:#a93226}
+.b-ac{background:var(--blue-bg);color:#0d7cb0}
+.b-ad{background:#f0e6ff;color:#6d28d9}
+
+/* ── TABLES ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--gray-100)}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--gray-200);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--gray-200);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f5f7ff}
+.tc{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--navy);font-weight:500}
+.td{max-width:300px}.td small{display:block;color:var(--gray-500);font-size:11px;margin-top:2px}
+
+/* ── PROGRESS BAR ── */
+.pb{background:var(--gray-200);border-radius:20px;height:8px;overflow:hidden}
+.pf{height:100%;border-radius:20px;background:var(--blue);transition:width .4s}
+.pf.g{background:var(--green)}.pf.a{background:var(--amber)}.pf.r{background:var(--red)}.pf.p{background:var(--purple)}
+
+/* ── FORMS ── */
+.fg{margin-bottom:16px}
+.fl{display:block;margin-bottom:5px;font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:.4px}
+.fl span{font-weight:400;color:var(--gray-500);text-transform:none;font-size:11px}
+.fc{width:100%;padding:10px 14px;border:1.5px solid var(--gray-300);border-radius:var(--rs);font-family:inherit;font-size:14px;color:var(--gray-900);background:white;transition:var(--tr)}
+.fc:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,171,226,.12)}
+.fc:disabled{background:var(--gray-100);color:var(--gray-500)}
+textarea.fc{resize:vertical;min-height:80px}
+.fh{font-size:11px;color:var(--gray-500);margin-top:3px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* ── UNIT COST WIDGET ── */
+.unit-calc{background:var(--blue-bg);border-radius:var(--rs);padding:10px 14px;font-size:13px;margin-top:8px;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace}
+.unit-calc strong{color:var(--navy);font-size:15px}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;z-index:1000;background:rgba(13,43,78,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fi .2s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.md{background:white;border-radius:14px;box-shadow:var(--shl);width:100%;max-width:640px;max-height:90vh;overflow-y:auto;animation:su .25s ease}
+.md-lg{max-width:860px}
+@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mh{padding:20px 26px 16px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px}
+.mt{font-size:16px;font-weight:800;color:var(--navy);flex:1}
+.mx{margin-left:auto;background:none;border:none;font-size:22px;color:var(--gray-500);cursor:pointer;line-height:1}
+.mx:hover{color:var(--red)}
+.mb2{padding:22px 26px}
+.mf{padding:14px 26px;border-top:1px solid var(--gray-200);display:flex;gap:10px;justify-content:flex-end}
+
+/* ── OUTPUT ACCORDION ── */
+.ob{border:1px solid var(--gray-200);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.ob.adm{border-color:#e0d4ff;opacity:.55}
+.ob.adm .oh{background:#f9f6ff}
+.oh{display:flex;align-items:center;gap:10px;padding:13px 18px;background:var(--gray-100);cursor:pointer;border-bottom:1px solid var(--gray-200);user-select:none}
+.oh:hover{background:#eef2ff}
+.oc{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;background:var(--navy);color:white;padding:3px 8px;border-radius:4px;flex-shrink:0}
+.oc.adm{background:var(--purple)}
+.od{font-size:13px;font-weight:700;color:var(--navy);flex:1;line-height:1.3}
+.og{font-size:14px;color:var(--gray-500);flex-shrink:0;transition:transform .2s}
+.ob.open .og{transform:rotate(180deg)}
+.oa{display:none}.ob.open .oa{display:block}
+.ar{border-bottom:1px solid var(--gray-200)}.ar:last-child{border-bottom:none}
+.ar:hover{background:#fafbff}
+
+/* ── SUB-ACTIVITY PANEL ── */
+.sp{background:#f8f9ff;border-top:1px solid #e5e9f8}
+.sh2{display:flex;align-items:center;justify-content:space-between;padding:8px 18px 8px 34px;font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #eaecf8}
+.sr{display:flex;align-items:center;gap:8px;padding:9px 18px 9px 34px;border-bottom:1px solid #eaecf8;font-size:13px}
+.sr:last-child{border-bottom:none}.sr:hover{background:#f0f3ff}
+.sc2{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);font-weight:700;min-width:80px}
+.sd{flex:1;color:var(--gray-700)}
+.scat{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:700}
+.scat.Labour{background:#fef9e7;color:#9a6700}
+.scat.Materials{background:var(--blue-bg);color:#0d7cb0}
+.scat.Transport{background:var(--green-bg);color:#1a8a4e}
+.scat.Venue{background:var(--purple-bg);color:#6d28d9}
+.scat.Other{background:var(--gray-200);color:var(--gray-700)}
+.sm{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gray-700);min-width:90px;text-align:right}
+.sm.ov{color:var(--red)!important}
+
+/* ── SPEND INDICATORS ── */
+.si{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+.si.ok{background:var(--green-bg);color:#1a8a4e}
+.si.warn{background:var(--amber-bg);color:#9a6700}
+.si.over{background:var(--red-bg);color:#a93226}
+.si.none{background:var(--gray-200);color:var(--gray-500)}
+
+/* ── NOTICE BANNERS ── */
+.nb{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:var(--rs);padding:11px 16px;font-size:12px;color:#5b21b6;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.nb.info{background:var(--blue-bg);border-color:#b3dff5;color:#0c5f82}
+
+/* ── MISC LAYOUT ── */
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.ga{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:20px}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.pt{font-size:22px;font-weight:900;color:var(--navy)}
+.ps{font-size:13px;color:var(--gray-500);margin-top:2px}
+.fb{display:flex;align-items:center;justify-content:space-between}
+.fc2{display:flex;align-items:center}
+.g8{gap:8px}.g12{gap:12px}.g16{gap:16px}
+.mt8{margin-top:8px}.mt16{margin-top:16px}.mt24{margin-top:24px}
+.mb8{margin-bottom:8px}.mb16{margin-bottom:16px}.mb24{margin-bottom:24px}
+.text-r{text-align:right}.text-c{text-align:center}
+.tm{color:var(--gray-500)}.ts{font-size:12px}.fm{font-family:'JetBrains Mono',monospace}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--gray-200);color:var(--gray-700)}
+.divider{height:1px;background:var(--gray-200);margin:20px 0}
+.proj-card{background:white;border-radius:var(--r);border:1px solid var(--gray-200);box-shadow:var(--sh);padding:22px;cursor:pointer;transition:var(--tr)}
+.proj-card:hover{box-shadow:var(--shl);border-color:var(--blue);transform:translateY(-1px)}
+.pf2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--blue);margin-bottom:8px}
+.pn{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px;line-height:1.3}
+.pp{font-size:12px;color:var(--gray-500);margin-bottom:14px}
+.pm{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.pm-i{font-size:11px;color:var(--gray-500)}
+.pm-i strong{display:block;color:var(--gray-900);font-size:13px;font-family:'JetBrains Mono',monospace}
+.es{text-align:center;padding:48px 24px}
+.es-i{font-size:44px;margin-bottom:14px}
+.es-t{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px}
+.es-s{font-size:13px;color:var(--gray-500);margin-bottom:18px}
+
+/* ── TOAST ── */
+#tc{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--navy);color:white;padding:11px 18px;border-radius:var(--rs);box-shadow:var(--shl);font-size:13px;font-weight:600;max-width:300px;animation:sl .3s ease}
+@keyframes sl{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.ok{background:var(--green)}.toast.er{background:var(--red)}.toast.wa{background:var(--amber);color:#1a1a1a}
+
+/* ── SYNC ── */
+.sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-500);font-weight:600}
+.sd2{width:8px;height:8px;border-radius:50%;background:var(--gray-300)}
+.sd2.synced{background:var(--green)}.sd2.syncing{background:var(--amber);animation:pu 1s infinite}.sd2.offline{background:var(--red)}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── SETTINGS ── */
+.ss{background:white;border-radius:var(--r);border:1px solid var(--gray-200);margin-bottom:18px}
+.ss-t{padding:14px 22px;font-size:14px;font-weight:800;color:var(--navy);border-bottom:1px solid var(--gray-200)}
+.ss-r{padding:14px 22px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:16px}
+.ss-r:last-child{border-bottom:none}
+.ss-l{flex:1}.ss-l strong{display:block;font-size:13px;color:var(--gray-900)}
+.ss-l span{font-size:12px;color:var(--gray-500)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none">
+  <div class="auth-screen">
+    <div class="auth-box">
+      <div class="auth-logo">AT</div>
+      <div class="auth-title">ActivityTrack</div>
+      <div class="auth-sub">M&E Implementation Monitor<br>Eye Media Group · UNICEF South Sudan</div>
+      <div class="auth-error" id="auth-err">Incorrect username or password.</div>
+      <div class="fg" style="text-align:left">
+        <label class="fl">Username</label>
+        <input type="text" class="fc" id="login-user" placeholder="your.name" autocomplete="username"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+      </div>
+      <div class="fg" style="text-align:left">
+        <label class="fl">Password</label>
+        <div class="pw-wrap">
+          <input type="password" class="fc" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:42px">
+          <button class="pw-toggle" type="button" onclick="togglePw()" id="pw-eye" title="Show/hide password">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-bottom:12px" onclick="doLogin()" id="login-btn">
+        🔐 Sign In
+      </button>
+      <div id="login-spinner" style="display:none;text-align:center;font-size:13px;color:var(--gray-500);margin-bottom:12px">Verifying…</div>
+      <div class="auth-divider">or</div>
+      <button style="background:none;border:none;color:var(--blue);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:6px" onclick="demoLogin()">
+        Use demo account
+      </button>
+      <p style="font-size:11px;color:var(--gray-500);margin-top:18px">Contact your M&E admin if you need access.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;width:100%">
+<nav id="sidebar">
+  <div class="sb-head">
+    <div class="sb-logo">AT</div>
+    <div><div class="sb-title">ActivityTrack</div><div class="sb-sub">M&E Monitor</div></div>
+    <button class="sb-toggle" onclick="toggleSB()">⇆</button>
+  </div>
+  <div class="sb-nav">
+    <div class="nav-sec">Overview</div>
+    <div class="ni active" onclick="nav('dashboard')"><span class="ni-icon">📊</span><span class="ni-label">Dashboard</span></div>
+    <div class="nav-sec">Projects</div>
+    <div class="ni" onclick="nav('projects')"><span class="ni-icon">📁</span><span class="ni-label">All Projects</span></div>
+    <div class="ni" onclick="nav('activities')"><span class="ni-icon">✅</span><span class="ni-label">Activity Tracker</span></div>
+    <div class="ni" onclick="nav('progress')"><span class="ni-icon">📝</span><span class="ni-label">Progress Log</span></div>
+    <div class="nav-sec">Finance</div>
+    <div class="ni" onclick="nav('budget')"><span class="ni-icon">💰</span><span class="ni-label">Budget Tracker</span></div>
+    <div class="nav-sec">Reports</div>
+    <div class="ni" onclick="nav('reports')"><span class="ni-icon">📄</span><span class="ni-label">Reports</span></div>
+    <div class="nav-sec">Admin</div>
+    <div class="ni" onclick="nav('users')"><span class="ni-icon">👥</span><span class="ni-label">Users</span></div>
+    <div class="ni" onclick="nav('settings')"><span class="ni-icon">⚙️</span><span class="ni-label">Settings</span></div>
+  </div>
+  <div class="sb-foot">
+    <div class="sb-user" onclick="nav('settings')">
+      <div class="sb-av" id="user-av">M</div>
+      <div><div class="sb-uname" id="user-nm">User</div><div class="sb-urole" id="user-rl">M&E Officer</div></div>
+    </div>
+  </div>
+</nav>
+<div id="main">
+  <div id="topbar">
+    <div><div class="tb-bread" id="tb-bread">Overview</div><div class="tb-title" id="tb-title">Dashboard</div></div>
+    <div class="tb-actions">
+      <div class="sync"><div class="sd2" id="sync-dot"></div><span id="sync-lbl">Local</span></div>
+      <button class="btn btn-outline btn-sm" onclick="syncData()">🔄 Sync</button>
+      <button class="btn btn-primary btn-sm" id="tb-btn" onclick="handleTopBtn()">+ New Project</button>
+      <button class="btn btn-outline btn-sm" onclick="signOut()" title="Sign out">⏻</button>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+</div>
+
+<div id="tc"></div>
+
+<script>
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+const A = {
+  session: null, scriptUrl: '', currentView: 'dashboard',
+  navParams: {}, db: null,
+  data: { projects:[], outputs:[], activities:[], subActivities:[], progress:[], users:[] }
+};
+const ADMIN_KW = ['programme management','program management','effective and efficient','hq support','overhead','security risk'];
+const SUB_CATS = ['Labour','Materials','Transport','Venue','Other'];
+const UNIT_TYPES = ['script','episode','session','broadcast','training day','person-day','piece','report','event','month','other'];
+
+function isAdm(output) {
+  if (!output) return false;
+  if (output.is_admin) return true;
+  const d = (output.description||output.output_code||'').toLowerCase();
+  return ADMIN_KW.some(k => d.includes(k));
+}
+
+/* ════════════════════════════════════════
+   DEMO DATA
+════════════════════════════════════════ */
+const DEMO = {
+  projects:[{
+    id:'p001', name:'Integrated Community Communication for Lifesaving Behaviour Change',
+    funder:'UNICEF South Sudan', partner:'Eye Media Group', ref_number:'PD-SS-2025-EM-001',
+    sector:'Communication for Development', start_date:'2025-09-01', end_date:'2026-08-31',
+    total_budget:825081.50, unicef_budget:618321.50, cso_budget:206760, status:'active', currency:'USD',
+    created_at:new Date().toISOString()
+  }],
+  outputs:[
+    {id:'o001',project_id:'p001',output_code:'Output 1',is_admin:false,description:'Communities have increased access to integrated information on positive behaviors and life saving practices for informed decision making.',total_budget:172200,unicef_budget:122640,cso_budget:49560},
+    {id:'o002',project_id:'p001',output_code:'Output 2',is_admin:false,description:'Communities have access to inclusive feedback mechanisms for informed decision-making and resilience.',total_budget:79330,unicef_budget:42130,cso_budget:37200},
+    {id:'o003',project_id:'p001',output_code:'Output 3',is_admin:false,description:'Communities have increased access to broadcasting of integrated lifesaving information via partner radio stations across South Sudan.',total_budget:355680,unicef_budget:334140,cso_budget:21540},
+    {id:'o004',project_id:'p001',output_code:'Output 4',is_admin:true,description:'Programme security risk management.',total_budget:15600,unicef_budget:15600,cso_budget:0},
+    {id:'o005',project_id:'p001',output_code:'Output 5',is_admin:true,description:'Effective and efficient programme management.',total_budget:176400,unicef_budget:77940,cso_budget:98460}
+  ],
+  activities:[
+    {id:'a001',output_id:'o001',project_id:'p001',activity_code:'Act.1.1',description:'Production of Radio programs: Talkshow, Drama, 1 min PSA Messages in multiple languages.',q1_y1:1,q2_y1:1,q3_y1:1,q4_y1:1,total_budget:102400,unicef_budget:66800,cso_budget:35600},
+    {id:'a002',output_id:'o001',project_id:'p001',activity_code:'Act.1.2',description:'Production of 5 min Radio drama series on thematic areas in 8 languages.',q1_y1:1,q2_y1:0,q3_y1:1,q4_y1:0,total_budget:69800,unicef_budget:55840,cso_budget:13960},
+    {id:'a003',output_id:'o002',project_id:'p001',activity_code:'Act.2.1',description:'Establishment and management of community feedback mechanisms through Eye Radio Listener Call-in platform.',q1_y1:1,q2_y1:1,q3_y1:1,q4_y1:1,total_budget:54000,unicef_budget:16800,cso_budget:37200},
+    {id:'a004',output_id:'o002',project_id:'p001',activity_code:'Act.2.2',description:'Training of 35 Journalists (10 per region) on documentation of UNICEF thematic areas.',q1_y1:0,q2_y1:1,q3_y1:0,q4_y1:0,total_budget:25330,unicef_budget:25330,cso_budget:0},
+    {id:'a005',output_id:'o003',project_id:'p001',activity_code:'Act.3.1',description:'Eye Radio live Broadcast of talkshow with call-ins and airing of spots.',q1_y1:1,q2_y1:1,q3_y1:1,q4_y1:1,total_budget:73400,unicef_budget:51860,cso_budget:21540},
+    {id:'a006',output_id:'o003',project_id:'p001',activity_code:'Act.3.2',description:'26 Radio stations in South Sudan airing spots/jingles on integrated thematic messages.',q1_y1:1,q2_y1:1,q3_y1:1,q4_y1:1,total_budget:212040,unicef_budget:212040,cso_budget:0},
+    {id:'a007',output_id:'o003',project_id:'p001',activity_code:'Act.3.3',description:'16 Radio stations airing Drama episodes on integrated thematic messages.',q1_y1:1,q2_y1:1,q3_y1:0,q4_y1:1,total_budget:10240,unicef_budget:10240,cso_budget:0},
+    {id:'a008',output_id:'o003',project_id:'p001',activity_code:'Act.3.4',description:'20 Radio stations airing Talk shows on Integrated life saving thematic areas.',q1_y1:0,q2_y1:1,q3_y1:1,q4_y1:1,total_budget:60000,unicef_budget:60000,cso_budget:0}
+  ],
+  subActivities:[
+    {id:'sa01',activity_id:'a001',project_id:'p001',sub_code:'Act.1.1.1',description:'Script writing and translation (8 languages)',category:'Labour',unit_type:'script',quantity:48,unit_cost:375,planned_budget:18000,created_at:'2025-09-01'},
+    {id:'sa02',activity_id:'a001',project_id:'p001',sub_code:'Act.1.1.2',description:'Voice recording and studio mastering',category:'Labour',unit_type:'recording session',quantity:16,unit_cost:1375,planned_budget:22000,created_at:'2025-09-01'},
+    {id:'sa03',activity_id:'a001',project_id:'p001',sub_code:'Act.1.1.3',description:'Production equipment and consumables',category:'Materials',unit_type:'piece',quantity:1,unit_cost:8400,planned_budget:8400,created_at:'2025-09-01'},
+    {id:'sa04',activity_id:'a001',project_id:'p001',sub_code:'Act.1.1.4',description:'Distribution to 26 partner stations (USB + data costs)',category:'Transport',unit_type:'station',quantity:26,unit_cost:177,planned_budget:4600,created_at:'2025-09-01'},
+    {id:'sa05',activity_id:'a002',project_id:'p001',sub_code:'Act.1.2.1',description:'Drama script development (5 episodes × 8 languages)',category:'Labour',unit_type:'script',quantity:40,unit_cost:375,planned_budget:15000,created_at:'2025-09-01'},
+    {id:'sa06',activity_id:'a002',project_id:'p001',sub_code:'Act.1.2.2',description:'Actor rehearsals and direction',category:'Labour',unit_type:'session',quantity:24,unit_cost:500,planned_budget:12000,created_at:'2025-09-01'},
+    {id:'sa07',activity_id:'a004',project_id:'p001',sub_code:'Act.2.2.1',description:'Training venue and accommodation (3 regions)',category:'Venue',unit_type:'event',quantity:3,unit_cost:2667,planned_budget:8000,created_at:'2025-09-01'},
+    {id:'sa08',activity_id:'a004',project_id:'p001',sub_code:'Act.2.2.2',description:'Facilitator fees and training materials',category:'Labour',unit_type:'training day',quantity:6,unit_cost:1555,planned_budget:9330,created_at:'2025-09-01'},
+    {id:'sa09',activity_id:'a004',project_id:'p001',sub_code:'Act.2.2.3',description:'Participant transport and per diems (35 journalists)',category:'Transport',unit_type:'person-day',quantity:105,unit_cost:76,planned_budget:8000,created_at:'2025-09-01'}
+  ],
+  progress:[
+    {id:'pr01',activity_id:'a001',sub_activity_id:'sa01',project_id:'p001',period:'Oct 2025',status:'completed',units_completed:12,percent_complete:25,actual_expenditure:4500,notes:'12 PSA scripts completed for Health thematic area. Translated into Dinka, Nuer, Bari.',evidence_url:'https://drive.google.com',submitted_by:'Mono Taban',submitted_at:'2025-10-31T12:00:00Z'},
+    {id:'pr02',activity_id:'a001',sub_activity_id:'sa01',project_id:'p001',period:'Nov 2025',status:'completed',units_completed:14,percent_complete:54,actual_expenditure:5250,notes:'14 scripts for Nutrition and WASH completed. Voicing scheduled next month.',evidence_url:'https://drive.google.com',submitted_by:'Mono Taban',submitted_at:'2025-11-30T12:00:00Z'},
+    {id:'pr03',activity_id:'a001',sub_activity_id:'sa02',project_id:'p001',period:'Nov 2025',status:'completed',units_completed:4,percent_complete:25,actual_expenditure:5600,notes:'4 recording sessions completed. 48 PSAs mastered for Dinka and Nuer.',evidence_url:'https://drive.google.com',submitted_by:'Mono Taban',submitted_at:'2025-11-30T14:00:00Z'},
+    {id:'pr04',activity_id:'a003',sub_activity_id:null,project_id:'p001',period:'Oct 2025',status:'completed',units_completed:1,percent_complete:25,actual_expenditure:4500,notes:'Eye Radio call-in line activated. 312 feedback entries recorded in October.',evidence_url:'',submitted_by:'Mono Taban',submitted_at:'2025-10-31T14:00:00Z'},
+    {id:'pr05',activity_id:'a003',sub_activity_id:null,project_id:'p001',period:'Nov 2025',status:'completed',units_completed:1,percent_complete:50,actual_expenditure:4500,notes:'535 additional feedback entries. Dominant themes: health service quality and water access.',evidence_url:'https://drive.google.com',submitted_by:'Mono Taban',submitted_at:'2025-11-30T16:00:00Z'},
+    {id:'pr06',activity_id:'a005',sub_activity_id:null,project_id:'p001',period:'Oct 2025',status:'completed',units_completed:4,percent_complete:10,actual_expenditure:6117,notes:'4 live talkshows broadcast. Topics: measles vaccination and child nutrition.',evidence_url:'https://drive.google.com',submitted_by:'Mono Taban',submitted_at:'2025-10-31T16:00:00Z'},
+    {id:'pr07',activity_id:'a001',sub_activity_id:'sa01',project_id:'p001',period:'Dec 2025',status:'in-progress',units_completed:8,percent_complete:71,actual_expenditure:3000,notes:'8 scripts in final review. Education and CP thematic areas.',evidence_url:'',submitted_by:'Mono Taban',submitted_at:'2025-12-15T12:00:00Z'},
+    {id:'pr08',activity_id:'a004',sub_activity_id:'sa07',project_id:'p001',period:'Feb 2026',status:'delayed',units_completed:0,percent_complete:0,actual_expenditure:0,notes:'Training postponed — accessibility challenges in Upper Nile. Rescheduled to Apr 2026.',evidence_url:'',submitted_by:'Mono Taban',submitted_at:'2026-02-28T12:00:00Z'}
+  ],
+  users:[
+    // username:'mono' password:'demo1234'  → SHA-256 stored
+    {id:'u001',name:'Mono Taban',username:'mono',org:'Eye Media Group',role:'admin',
+     password_hash:'a6d4f8b2c3e1f047d9a2b6c3e8f1a4d7b9c2e5f8a1d4b7c0e3f6a9d2b5c8e1f4', // demo hash placeholder
+     status:'active',created_at:new Date().toISOString()},
+    // username:'reporter' password:'report5678'
+    {id:'u002',name:'Field Reporter',username:'reporter',org:'Eye Media Group',role:'reporter',
+     password_hash:'b7e5c9a3d1f248e0c8b5d2f9a3c6e0b4d7f1a5c8e2b6d9f3a0c4e7b1d5f8a2c6',
+     status:'active',created_at:new Date().toISOString()}
+  ]
+};
+
+/* ════════════════════════════════════════
+   INDEXEDDB
+════════════════════════════════════════ */
+function initDB() {
+  return new Promise((res,rej) => {
+    const req = indexedDB.open('ActivityTrackDB', 3);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      ['projects','outputs','activities','subActivities','progress','users'].forEach(s => {
+        if (!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'});
+      });
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings',{keyPath:'key'});
+    };
+    req.onsuccess = e => { A.db = e.target.result; res(A.db); };
+    req.onerror = e => rej(e);
+  });
+}
+function dbGet(store){ return new Promise(r=>{ if(!A.db)return r([]); const t=A.db.transaction(store,'readonly'); const q=t.objectStore(store).getAll(); q.onsuccess=e=>r(e.target.result||[]); q.onerror=()=>r([]); }); }
+function dbPut(store,item){ return new Promise(r=>{ if(!A.db)return r(); const t=A.db.transaction(store,'readwrite'); t.objectStore(store).put(item); t.oncomplete=r; t.onerror=r; }); }
+function dbDel(store,id){ return new Promise(r=>{ if(!A.db)return r(); const t=A.db.transaction(store,'readwrite'); t.objectStore(store).delete(id); t.oncomplete=r; t.onerror=r; }); }
+function dbSetting(key,val){ return new Promise(r=>{ if(!A.db)return r(); if(val===undefined){ const t=A.db.transaction('settings','readonly'); const q=t.objectStore('settings').get(key); q.onsuccess=e=>r(e.target.result?e.target.result.value:null); q.onerror=()=>r(null); } else { const t=A.db.transaction('settings','readwrite'); t.objectStore('settings').put({key,value:val}); t.oncomplete=()=>r(true); t.onerror=()=>r(false); } }); }
+
+/* ════════════════════════════════════════
+   AUTH — SHA-256 hashed passwords
+════════════════════════════════════════ */
+function togglePw() {
+  const f = document.getElementById('login-pass');
+  const e = document.getElementById('pw-eye');
+  if (!f) return;
+  f.type = f.type === 'password' ? 'text' : 'password';
+  if (e) e.textContent = f.type === 'password' ? '👁' : '🙈';
+}
+
+// SHA-256 via Web Crypto API (built into every modern browser)
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const username = (document.getElementById('login-user').value || '').trim().toLowerCase();
+  const password = document.getElementById('login-pass').value || '';
+  if (!username || !password) { showAuthErr('Enter your username and password.'); return; }
+  hideAuthErr();
+  setLoginBusy(true);
+
+  const hash = await sha256(username + ':' + password);
+
+  // Demo / offline auth — check against local users store first
+  const localUsers = A.data.users.length ? A.data.users : DEMO.users;
+  const localMatch = localUsers.find(u => u.username === username);
+
+  if (!A.scriptUrl) {
+    // Demo mode: accept 'mono'/'demo1234' or 'reporter'/'report5678' regardless of stored hash
+    const demoCredentials = [
+      { username:'mono', password:'demo1234' },
+      { username:'reporter', password:'report5678' }
+    ];
+    const demoOk = demoCredentials.find(c => c.username === username && c.password === password);
+    if (demoOk && localMatch) { setLoginBusy(false); startSession(localMatch); return; }
+    // Also allow any username if hash matches stored hash (for users added via admin panel)
+    if (localMatch && localMatch.password_hash === hash) { setLoginBusy(false); startSession(localMatch); return; }
+    setLoginBusy(false); showAuthErr(); return;
+  }
+
+  // Real auth via Apps Script — sends hash, never plaintext password
+  const cbName = 'authCB_' + Date.now();
+  const url = `${A.scriptUrl}?action=verifyUser&username=${encodeURIComponent(username)}&hash=${encodeURIComponent(hash)}&callback=${cbName}&t=${Date.now()}`;
+  window[cbName] = res => {
+    delete window[cbName]; setLoginBusy(false);
+    if (res && res.success && res.user) startSession(res.user);
+    else showAuthErr(res && res.message ? res.message : null);
+  };
+  const s = document.createElement('script'); s.src = url;
+  s.onerror = () => {
+    document.head.removeChild(s); setLoginBusy(false);
+    // Fall back to local auth on network error
+    if (localMatch && localMatch.password_hash === hash) { startSession(localMatch); return; }
+    showAuthErr('Network error. Check your connection.');
+  };
+  document.head.appendChild(s);
+  setTimeout(() => { if (document.head.contains(s)) { document.head.removeChild(s); setLoginBusy(false); showAuthErr('Sign-in timed out.'); } }, 10000);
+}
+
+function demoLogin() {
+  document.getElementById('login-user').value = 'mono';
+  document.getElementById('login-pass').value = 'demo1234';
+  doLogin();
+}
+
+function setLoginBusy(busy) {
+  const btn = document.getElementById('login-btn');
+  const spin = document.getElementById('login-spinner');
+  if (btn) btn.style.display = busy ? 'none' : 'flex';
+  if (spin) spin.style.display = busy ? 'block' : 'none';
+}
+
+function startSession(user) {
+  // Never store password hash in session
+  const { password_hash, ...safeUser } = user;
+  const session = { ...safeUser, loginTime: new Date().toISOString(), expires: new Date(Date.now() + 8*60*60*1000).toISOString() };
+  A.session = session;
+  dbSetting('session', session);
+  launchApp();
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  if (el) { el.textContent = msg || 'Incorrect username or password.'; el.style.display = 'block'; }
+}
+function hideAuthErr() {
+  const el = document.getElementById('auth-err');
+  if (el) el.style.display = 'none';
+}
+
+function signOut() {
+  if (!confirm('Sign out of ActivityTrack?')) return;
+  A.session = null;
+  dbSetting('session', null);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  const uf = document.getElementById('login-user');
+  const pf = document.getElementById('login-pass');
+  if (uf) uf.value = '';
+  if (pf) pf.value = '';
+}
+
+/* ════════════════════════════════════════
+   SYNC
+════════════════════════════════════════ */
+function syncData() {
+  if (!A.scriptUrl) { toast('No Apps Script URL.','warn'); return; }
+  setSS('syncing');
+  const url = `${A.scriptUrl}?action=getAll&callback=syncCB&t=${Date.now()}`;
+  const s = document.createElement('script'); s.src = url;
+  s.onerror = () => { setSS('offline'); toast('Sync failed','er'); document.head.removeChild(s); };
+  document.head.appendChild(s);
+  setTimeout(() => { if(document.head.contains(s)){ document.head.removeChild(s); setSS('offline'); } }, 10000);
+}
+window.syncCB = async function(data) {
+  if (!data||data.error){ setSS('offline'); return; }
+  for (const store of ['projects','outputs','activities','subActivities','progress','users']) {
+    if (data[store]) { A.data[store]=data[store]; for(const item of data[store]) await dbPut(store,item); }
+  }
+  setSS('synced'); toast('Synced ✓','ok'); renderView();
+};
+function post2sheets(action, payload) {
+  if (!A.scriptUrl) return;
+  const cb='cb_'+Date.now();
+  const url=`${A.scriptUrl}?action=${action}&data=${encodeURIComponent(JSON.stringify(payload))}&callback=${cb}&t=${Date.now()}`;
+  window[cb]=()=>delete window[cb];
+  const s=document.createElement('script'); s.src=url; s.onerror=()=>document.head.removeChild(s);
+  document.head.appendChild(s);
+  setTimeout(()=>{ if(document.head.contains(s)) document.head.removeChild(s); },8000);
+}
+function setSS(st) {
+  const d=document.getElementById('sync-dot'),l=document.getElementById('sync-lbl');
+  if(!d||!l)return;
+  d.className='sd2 '+st;
+  l.textContent=st==='synced'?'Synced':st==='syncing'?'Syncing…':st==='offline'?'Offline':'Local';
+}
+
+/* ════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════ */
+function uid(){ return 'i'+Date.now().toString(36)+Math.random().toString(36).substr(2,5); }
+function toast(msg,type='',dur=3500){ const c=document.getElementById('tc'); const t=document.createElement('div'); t.className='toast '+(type==='ok'?'ok':type==='er'?'er':type==='wa'||type==='warn'?'wa':''); t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(),dur); }
+function fmtM(n){ return '$'+(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtD(d){ if(!d)return'—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function closeM(){ const m=document.getElementById('mod'); if(m)m.remove(); }
+function showM(html){ closeM(); const d=document.createElement('div'); d.id='mod'; d.className='mo'; d.innerHTML=html; d.addEventListener('click',e=>{ if(e.target===d)closeM(); }); document.body.appendChild(d); }
+function sbadge(st){
+  const m={'not-started':['b-ns','○ Not Started'],'planned':['b-pl','◈ Planned'],'in-progress':['b-ip','◉ In Progress'],'completed':['b-co','✓ Completed'],'delayed':['b-de','⚠ Delayed'],'active':['b-ac','● Active'],'closed':['b-ns','■ Closed']};
+  const [c,l]=m[st]||['b-ns',st]; return `<span class="badge ${c}">${l}</span>`;
+}
+function spendI(spent, planned) {
+  if (!spent) return '<span class="si none">No spend</span>';
+  const p = planned ? spent/planned*100 : 0;
+  if (p > 100) return `<span class="si over">Over ${Math.round(p)}%</span>`;
+  if (p > 80) return `<span class="si warn">${Math.round(p)}%</span>`;
+  return `<span class="si ok">${Math.round(p)}%</span>`;
+}
+function getProjectMonths(proj) {
+  if (!proj) return [];
+  const s = new Date(proj.start_date), e = new Date(proj.end_date);
+  const months = []; let cur = new Date(s.getFullYear(), s.getMonth(), 1);
+  const end = new Date(e.getFullYear(), e.getMonth(), 1);
+  while (cur <= end) {
+    months.push(cur.toLocaleDateString('en-GB',{month:'short',year:'numeric'}));
+    cur.setMonth(cur.getMonth()+1);
+  }
+  return months;
+}
+function calcSubPct(subId) {
+  const s = A.data.subActivities.find(x=>x.id===subId); if(!s) return 0;
+  const done = A.data.progress.filter(x=>x.sub_activity_id===subId).reduce((sum,x)=>sum+(x.units_completed||0),0);
+  return s.quantity ? Math.round(done/s.quantity*100) : 0;
+}
+function calcSubSpent(subId) {
+  return A.data.progress.filter(x=>x.sub_activity_id===subId).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+}
+
+/* ════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════ */
+function nav(view, params) {
+  A.currentView = view; A.navParams = params || {};
+  document.querySelectorAll('.ni').forEach(el=>el.classList.remove('active'));
+  const views=['dashboard','projects','activities','progress','budget','reports','users','settings'];
+  const idx=views.indexOf(view);
+  const nis=document.querySelectorAll('.ni');
+  if(idx>=0&&nis[idx]) nis[idx].classList.add('active');
+  const titles={dashboard:['Overview','Dashboard'],projects:['Projects','All Projects'],activities:['Projects','Activity Tracker'],progress:['Projects','Progress Log'],budget:['Finance','Budget Tracker'],reports:['Reports','Reports & Exports'],users:['Admin','User Management'],settings:['Admin','Settings'],project_detail:['Projects','Project Detail']};
+  const [b,t]=titles[view]||['',''];
+  document.getElementById('tb-bread').textContent=b;
+  document.getElementById('tb-title').textContent=t;
+  const am={dashboard:['+ New Project','openProjModal'],projects:['+ New Project','openProjModal'],activities:['+ Log Progress','openProgModal'],progress:['+ Log Progress','openProgModal'],budget:['',''],reports:['📥 Export CSV','runExport'],users:['+ Invite User','openUserModal'],settings:['','']};
+  const [bl,bf]=am[view]||['',''];
+  const btn=document.getElementById('tb-btn'); btn.textContent=bl; btn.style.display=bl?'':'none'; btn._fn=bf;
+  renderView();
+}
+function handleTopBtn(){ const f=document.getElementById('tb-btn')._fn; if(f&&window[f])window[f](); }
+function renderView(){
+  const v=A.currentView,el=document.getElementById('content');
+  if(v==='dashboard') el.innerHTML=renderDash();
+  else if(v==='projects') el.innerHTML=renderProjects();
+  else if(v==='activities') el.innerHTML=renderActivities();
+  else if(v==='progress') el.innerHTML=renderProgress();
+  else if(v==='budget') el.innerHTML=renderBudget();
+  else if(v==='reports') el.innerHTML=renderReports();
+  else if(v==='users') el.innerHTML=renderUsers();
+  else if(v==='settings') el.innerHTML=renderSettings();
+  else if(v==='project_detail') el.innerHTML=renderProjDetail(A.navParams.projectId);
+  if(v==='dashboard') setTimeout(initCharts, 80);
+}
+
+/* ════════════════════════════════════════
+   CHARTS
+════════════════════════════════════════ */
+if(!window._CJ) window._CJ = {};
+function destroyCharts(){ Object.values(window._CJ).forEach(c=>{try{c.destroy()}catch(e){}}); window._CJ={}; }
+
+function initCharts() {
+  if (typeof Chart === 'undefined') { setTimeout(initCharts, 200); return; }
+  destroyCharts();
+  chartSpend();
+  chartStatus();
+  chartOutput();
+}
+
+function chartSpend() {
+  const canvas = document.getElementById('chart-spend');
+  if (!canvas) return;
+  const proj = A.data.projects[0];
+  if (!proj) return;
+  const months = getProjectMonths(proj);
+  const progOutputs = A.data.outputs.filter(o=>o.project_id===proj.id&&!isAdm(o));
+  const progActs = A.data.activities.filter(a=>progOutputs.find(o=>o.id===a.output_id));
+  const totalBudget = progOutputs.reduce((s,o)=>s+(o.total_budget||0),0);
+  const plannedPerMonth = totalBudget / (months.length||1);
+
+  // Actual spend per month, cumulative
+  const actual = [], planned = [];
+  let cumActual = 0, cumPlanned = 0;
+  months.forEach(m => {
+    const mSpend = A.data.progress
+      .filter(x=>x.period===m && progActs.find(a=>a.id===x.activity_id))
+      .reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    cumActual += mSpend;
+    cumPlanned += plannedPerMonth;
+    actual.push(cumActual);
+    planned.push(Math.min(cumPlanned, totalBudget));
+  });
+
+  const ctx = canvas.getContext('2d');
+  window._CJ.spend = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: months,
+      datasets:[
+        { label:'Actual Spend', data:actual, borderColor:'#1CABE2', backgroundColor:'rgba(28,171,226,.08)', borderWidth:2.5, pointRadius:4, fill:true, tension:0.3 },
+        { label:'Planned Burn Rate', data:planned, borderColor:'#F39C12', backgroundColor:'transparent', borderWidth:2, borderDash:[6,4], pointRadius:0, tension:0.3 }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{font:{size:11}}}, tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}`}} },
+      scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:6}}, y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:10}}} }
+    }
+  });
+}
+
+function chartStatus() {
+  const canvas = document.getElementById('chart-status');
+  if (!canvas) return;
+  const progOutputs = A.data.outputs.filter(o=>!isAdm(o));
+  const progActs = A.data.activities.filter(a=>progOutputs.find(o=>o.id===a.output_id));
+  const counts = {completed:0,'in-progress':0,delayed:0,planned:0,'not-started':0};
+  progActs.forEach(a => {
+    const progs = A.data.progress.filter(x=>x.activity_id===a.id);
+    const latest = progs.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+    const st = latest ? latest.status : 'not-started';
+    if (counts[st] !== undefined) counts[st]++;
+    else counts['not-started']++;
+  });
+  const ctx = canvas.getContext('2d');
+  window._CJ.status = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Completed','In Progress','Delayed','Planned','Not Started'],
+      datasets:[{ data:[counts.completed,counts['in-progress'],counts.delayed,counts.planned,counts['not-started']], backgroundColor:['#2ECC71','#F39C12','#E74C3C','#1CABE2','#d5d9e4'], borderWidth:0, hoverOffset:6 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{ legend:{position:'bottom',labels:{font:{size:10},boxWidth:12,padding:8}}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} activities`}} }
+    }
+  });
+}
+
+function chartOutput() {
+  const canvas = document.getElementById('chart-output');
+  if (!canvas) return;
+  const progOutputs = A.data.outputs.filter(o=>!isAdm(o));
+  const labels = [], data = [], colors = ['#1CABE2','#2ECC71','#F39C12','#8B5CF6','#E74C3C'];
+  progOutputs.forEach((o,i) => {
+    const acts = A.data.activities.filter(a=>a.output_id===o.id);
+    const progs = A.data.progress.filter(x=>acts.find(a=>a.id===x.activity_id));
+    const completed = progs.filter(x=>x.status==='completed').length;
+    const total = progs.length || 1;
+    labels.push(o.output_code);
+    data.push(Math.round(completed/total*100));
+  });
+  const ctx = canvas.getContext('2d');
+  window._CJ.output = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ label:'Implementation %', data, backgroundColor:colors.slice(0,labels.length), borderRadius:6, borderSkipped:false }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% complete`}} },
+      scales:{ x:{grid:{display:false},ticks:{font:{size:11}}}, y:{beginAtZero:true,max:100,grid:{color:'#f1f5f9'},ticks:{callback:v=>v+'%',font:{size:10}}} }
+    }
+  });
+}
+
+/* ════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════ */
+function renderDash() {
+  const d=A.data;
+  const progOuts=d.outputs.filter(o=>!isAdm(o));
+  const progActs=d.activities.filter(a=>progOuts.find(o=>o.id===a.output_id));
+  const totalBudget=progOuts.reduce((s,o)=>s+(o.total_budget||0),0);
+  const totalSpent=d.progress.filter(x=>progActs.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const delayed=d.progress.filter(x=>x.status==='delayed').length;
+  const evidence=d.progress.filter(x=>x.evidence_url&&x.evidence_url.startsWith('http')).length;
+  const spendPct=totalBudget?Math.round(totalSpent/totalBudget*100):0;
+
+  const projCards=d.projects.map(p=>{
+    const pActs=d.activities.filter(a=>a.project_id===p.id&&progOuts.find(o=>o.id===a.output_id));
+    const pProg=d.progress.filter(x=>pActs.find(a=>a.id===x.activity_id));
+    const pct=pProg.length?Math.round(pProg.filter(x=>x.status==='completed').length/pProg.length*100):0;
+    return `<div class="proj-card" onclick="nav('project_detail',{projectId:'${p.id}'})">
+      <div class="pf2">${p.funder}</div>
+      <div class="pn">${p.name}</div>
+      <div class="pp">👥 ${p.partner} · ${fmtD(p.start_date)} – ${fmtD(p.end_date)}</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px"><span>Programme Progress</span><span>${pct}%</span></div>
+      <div class="pb"><div class="pf ${pct>=80?'g':pct>=40?'':'a'}" style="width:${pct}%"></div></div>
+      <div class="pm">
+        <div class="pm-i"><strong>${fmtM(totalBudget)}</strong>Prog. Budget</div>
+        <div class="pm-i"><strong>${fmtM(totalSpent)}</strong>Spent</div>
+        <div class="pm-i"><strong>${pActs.length}</strong>Activities</div>
+        <div class="pm-i">${sbadge(p.status)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const recent=[...d.progress].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at)).slice(0,5);
+  const recentRows=recent.map(pr=>{
+    const act=d.activities.find(a=>a.id===pr.activity_id)||{};
+    const sub=pr.sub_activity_id?d.subActivities.find(s=>s.id===pr.sub_activity_id):null;
+    const proj=d.projects.find(p=>p.id===pr.project_id)||{};
+    return `<tr>
+      <td class="tc">${sub?sub.sub_code:act.activity_code||'—'}</td>
+      <td class="td"><span>${sub?sub.description:(act.description||'').substring(0,65)+'…'}</span><small>${proj.name||''}</small></td>
+      <td><span class="chip">${pr.period}</span></td>
+      <td>${sbadge(pr.status)}</td>
+      <td class="ts fm">${pr.units_completed||'—'} ${sub?sub.unit_type||'':''}</td>
+      <td class="ts fm text-r">${pr.actual_expenditure?fmtM(pr.actual_expenditure):'—'}</td>
+      <td>${pr.evidence_url&&pr.evidence_url.startsWith('http')?`<a href="${pr.evidence_url}" target="_blank" class="btn btn-outline btn-xs">📎</a>`:'—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="kpi-grid">
+    <div class="kpi blue"><div class="kpi-ic">📁</div><div class="kpi-val">${d.projects.length}</div><div class="kpi-lbl">Projects</div><div class="kpi-sub">${d.projects.filter(p=>p.status==='active').length} active</div></div>
+    <div class="kpi green"><div class="kpi-ic">✅</div><div class="kpi-val">${progActs.length}</div><div class="kpi-lbl">Prog. Activities</div><div class="kpi-sub">Admin excluded</div></div>
+    <div class="kpi amber"><div class="kpi-ic">⚠️</div><div class="kpi-val">${delayed}</div><div class="kpi-lbl">Delayed</div><div class="kpi-sub">Needing attention</div></div>
+    <div class="kpi navy"><div class="kpi-ic">💰</div><div class="kpi-val">${fmtM(totalBudget)}</div><div class="kpi-lbl">Prog. Budget</div><div class="kpi-sub">Excl. admin costs</div></div>
+    <div class="kpi ${spendPct>90?'red':spendPct>70?'amber':'green'}"><div class="kpi-ic">📤</div><div class="kpi-val">${fmtM(totalSpent)}</div><div class="kpi-lbl">Total Spent</div><div class="kpi-sub">${spendPct}% utilised</div></div>
+    <div class="kpi purple"><div class="kpi-ic">📎</div><div class="kpi-val">${evidence}</div><div class="kpi-lbl">Evidence Items</div><div class="kpi-sub">With document links</div></div>
+  </div>
+  <div class="nb">🔒 Output 4 (Security) and Output 5 (Programme Management) are excluded from all M&E tracking.</div>
+  <div class="chart-grid mb24">
+    <div class="chart-card">
+      <div class="chart-title">Cumulative Spending vs Planned Burn Rate</div>
+      <div class="chart-sub">Monthly actual expenditure vs linear budget burn — programme activities only</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-spend"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Activity Status Overview</div>
+      <div class="chart-sub">Current implementation status distribution</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-status"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-grid-3 mb24">
+    <div class="chart-card" style="grid-column:1/3">
+      <div class="chart-title">Progress by Programme Output</div>
+      <div class="chart-sub">% of progress entries marked completed, per output</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-output"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Active Projects</div>
+      <div class="chart-sub">Click to view detail</div>
+      <div style="padding-top:8px">${projCards||'<div class="es"><div class="es-i">📁</div><div class="es-t">No projects</div></div>'}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">Recent Progress Updates</span><span class="ts tm"><button class="btn btn-outline btn-sm" onclick="nav('progress')">View All</button></span></div>
+    <div class="tw"><table>
+      <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Period</th><th>Status</th><th>Units Done</th><th class="text-r">Spent</th><th>Evidence</th></tr></thead>
+      <tbody>${recentRows||'<tr><td colspan="7" class="text-c tm ts" style="padding:32px">No entries yet.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════
+   PROJECTS
+════════════════════════════════════════ */
+function renderProjects(){
+  const rows=A.data.projects.map(p=>{
+    const pa=A.data.activities.filter(a=>a.project_id===p.id&&!isAdm(A.data.outputs.find(o=>o.id===a.output_id)));
+    const pp=A.data.progress.filter(x=>pa.find(a=>a.id===x.activity_id));
+    const pct=pp.length?Math.round(pp.filter(x=>x.status==='completed').length/pp.length*100):0;
+    return `<tr><td class="tc">${p.ref_number||'—'}</td>
+      <td class="td"><strong>${p.name}</strong><small>${p.funder} · ${p.partner}</small></td>
+      <td class="ts">${p.sector||'—'}</td>
+      <td class="fm">${fmtM(p.total_budget)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="pb" style="width:80px"><div class="pf" style="width:${pct}%"></div></div><span class="ts fm">${pct}%</span></div></td>
+      <td>${sbadge(p.status)}</td>
+      <td><button class="btn btn-outline btn-xs" onclick="nav('project_detail',{projectId:'${p.id}'})">View</button>
+      <button class="btn btn-outline btn-xs" onclick="openProjModal('${p.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="delProject('${p.id}')">Del</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="ph"><div><div class="pt">All Projects</div><div class="ps">${A.data.projects.length} project(s)</div></div><button class="btn btn-primary" onclick="openProjModal()">+ New Project</button></div>
+  <div class="card"><div class="tw"><table><thead><tr><th>Ref</th><th>Project</th><th>Sector</th><th>Budget</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="text-c tm ts" style="padding:40px">No projects yet.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ════════════════════════════════════════
+   PROJECT DETAIL
+════════════════════════════════════════ */
+function renderProjDetail(projectId){
+  const p=A.data.projects.find(x=>x.id===projectId);
+  if(!p)return '<p>Not found.</p>';
+  const outputs=A.data.outputs.filter(o=>o.project_id===projectId);
+  document.getElementById('tb-title').textContent=p.name.substring(0,48)+'…';
+
+  const blocks=outputs.map(o=>{
+    const acts=A.data.activities.filter(a=>a.output_id===o.id);
+    const adm=isAdm(o);
+    const actHtml=acts.map(a=>{
+      const subs=A.data.subActivities.filter(s=>s.activity_id===a.id);
+      const progs=A.data.progress.filter(x=>x.activity_id===a.id);
+      const latest=progs.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+      const st=latest?latest.status:'not-started';
+      const actSpent=progs.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const qs=['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i)=>{
+        const label=['Q1','Q2','Q3','Q4'][i]+' Y1';
+        if(!a[q])return'<span style="color:var(--gray-300)">·</span>';
+        const qp=progs.find(x=>x.period===label);
+        const qs2=qp?qp.status:'planned';
+        const cc={planned:'#1CABE2','in-progress':'#F39C12',completed:'#2ECC71',delayed:'#E74C3C'};
+        return `<span title="${label}" style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${cc[qs2]||'#ddd'};cursor:pointer" onclick="openProgModal('${a.id}','','')"></span>`;
+      }).join(' ');
+
+      const subHtml=subs.map(s=>{
+        const sSpent=calcSubSpent(s.id);
+        const sPct=calcSubPct(s.id);
+        const sDone=A.data.progress.filter(x=>x.sub_activity_id===s.id).reduce((sum,x)=>sum+(x.units_completed||0),0);
+        const sLatest=A.data.progress.filter(x=>x.sub_activity_id===s.id).sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at))[0];
+        return `<div class="sr">
+          <div class="sc2">${s.sub_code}</div>
+          <div class="sd">${s.description}</div>
+          <span class="scat ${s.category}">${s.category}</span>
+          <span class="chip ts">${sDone}/${s.quantity} ${s.unit_type}</span>
+          ${sbadge(sLatest?sLatest.status:'not-started')}
+          <div class="sm">${fmtM(s.planned_budget)}</div>
+          <div class="sm ${sSpent>s.planned_budget?'ov':''}">${sSpent?fmtM(sSpent):'—'}</div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-primary btn-xs" onclick="openProgModal('${a.id}','','${s.id}')">+ Log</button>
+            <button class="btn btn-outline btn-xs" onclick="editSub('${s.id}')">✏</button>
+            <button class="btn btn-danger btn-xs" onclick="delSub('${s.id}')">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="ar" style="flex-direction:column;padding:0">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 18px">
+          <div class="tc" style="min-width:64px;padding-top:2px">${a.activity_code}</div>
+          <div style="flex:1;font-size:13px;color:var(--gray-700)">
+            ${a.description}
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap">
+              <span class="fm ts" style="color:var(--navy)">${fmtM(a.total_budget)}</span>
+              ${actSpent?`<span class="fm ts" style="color:var(--green)">Spent: ${fmtM(actSpent)}</span>`:''}
+              <span style="display:flex;gap:3px">${qs}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            ${sbadge(st)}
+            ${!adm?`<button class="btn btn-outline btn-xs" onclick="openSubModal('${a.id}','${p.id}')">+ Sub</button><button class="btn btn-primary btn-xs" onclick="openProgModal('${a.id}','','')">+ Log</button>`:''}
+          </div>
+        </div>
+        ${subs.length?`<div class="sp"><div class="sh2"><span>Sub-Activities (${subs.length})</span><span style="display:flex;gap:16px"><span>Qty / Unit</span><span>Planned</span><span>Spent</span><span></span></span></div>${subHtml}</div>`:''}
+      </div>`;
+    }).join('');
+
+    const oSpent=A.data.progress.filter(x=>acts.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const oProg=A.data.progress.filter(x=>acts.find(a=>a.id===x.activity_id));
+    const oPct=oProg.length?Math.round(oProg.filter(x=>x.status==='completed').length/oProg.length*100):0;
+
+    return `<div class="ob open ${adm?'adm':''}" id="out_${o.id}">
+      <div class="oh" onclick="toggleOut('${o.id}')">
+        <span class="oc ${adm?'adm':''}">${o.output_code}</span>
+        <span class="od">${o.description}</span>
+        ${adm?'<span class="badge b-ad">Admin</span>':''}
+        <span class="fm ts tm">${fmtM(o.total_budget)}</span>
+        ${oSpent?`<span class="fm ts" style="color:var(--green)">Spent: ${fmtM(oSpent)}</span>`:''}
+        <div class="pb" style="width:64px;flex-shrink:0"><div class="pf" style="width:${oPct}%"></div></div>
+        <span class="ts tm">${oPct}%</span>
+        <span class="og">▾</span>
+      </div>
+      <div class="oa">${actHtml||'<div style="padding:14px 18px;color:var(--gray-500);font-size:13px">No activities.</div>'}</div>
+    </div>`;
+  }).join('');
+
+  const progOuts=outputs.filter(o=>!isAdm(o));
+  const pa=A.data.activities.filter(a=>a.project_id===projectId&&progOuts.find(o=>o.id===a.output_id));
+  const pb=progOuts.reduce((s,o)=>s+(o.total_budget||0),0);
+  const ps=A.data.progress.filter(x=>pa.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const subs=A.data.subActivities.filter(s=>s.project_id===projectId);
+
+  return `<div class="fb mb24" style="flex-wrap:wrap;gap:12px">
+    <div><button class="btn btn-outline btn-sm" onclick="nav('projects')" style="margin-bottom:8px">← Back</button>
+    <div class="pt">${p.name}</div>
+    <div class="ps">${p.funder} · Ref: ${p.ref_number||'N/A'} · ${fmtD(p.start_date)} – ${fmtD(p.end_date)}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="openOutputModal('${p.id}')">+ Output</button>
+      <button class="btn btn-primary" onclick="openProgModal('','','')">+ Log Progress</button>
+    </div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="kpi blue"><div class="kpi-ic">📋</div><div class="kpi-val">${progOuts.length}</div><div class="kpi-lbl">Prog. Outputs</div></div>
+    <div class="kpi green"><div class="kpi-ic">✅</div><div class="kpi-val">${pa.length}</div><div class="kpi-lbl">Activities</div></div>
+    <div class="kpi purple"><div class="kpi-ic">🔹</div><div class="kpi-val">${subs.length}</div><div class="kpi-lbl">Sub-Activities</div></div>
+    <div class="kpi navy"><div class="kpi-ic">💰</div><div class="kpi-val">${fmtM(pb)}</div><div class="kpi-lbl">Prog. Budget</div></div>
+    <div class="kpi ${ps/pb>0.9?'red':ps/pb>0.7?'amber':'green'}"><div class="kpi-ic">📤</div><div class="kpi-val">${fmtM(ps)}</div><div class="kpi-lbl">Spent</div><div class="pb mt8"><div class="pf ${ps/pb>0.9?'r':ps/pb>0.7?'a':'g'}" style="width:${Math.min(Math.round(ps/pb*100)||0,100)}%"></div></div></div>
+  </div>
+  <div class="nb">🔒 Admin costs (Output 4, Output 5) shown but excluded from M&E budget monitoring.</div>
+  ${blocks||'<div class="es"><div class="es-i">📋</div><div class="es-t">No outputs yet</div><button class="btn btn-primary" onclick="openOutputModal(\''+p.id+'\')">+ Add Output</button></div>'}`;
+}
+function toggleOut(id){ const el=document.getElementById('out_'+id); if(el)el.classList.toggle('open'); }
+
+/* ════════════════════════════════════════
+   ACTIVITY TRACKER
+════════════════════════════════════════ */
+function renderActivities(){
+  const d=A.data;
+  const pf=A.navParams.projectId||'';
+  const po=d.outputs.filter(o=>!isAdm(o));
+  const pa=d.activities.filter(a=>po.find(o=>o.id===a.output_id));
+  const disp=pf?pa.filter(a=>a.project_id===pf):pa;
+  const popts=d.projects.map(p=>`<option value="${p.id}" ${p.id===pf?'selected':''}>${p.name.substring(0,50)}</option>`).join('');
+
+  const rows=disp.map(a=>{
+    const subs=d.subActivities.filter(s=>s.activity_id===a.id);
+    const progs=d.progress.filter(x=>x.activity_id===a.id);
+    const latest=progs.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+    const st=latest?latest.status:'not-started';
+    const aSpent=progs.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const proj=d.projects.find(p=>p.id===a.project_id)||{};
+    const out=d.outputs.find(o=>o.id===a.output_id)||{};
+    const qs=['q1_y1','q2_y1','q3_y1','q4_y1'].map((q,i)=>{
+      if(!a[q])return'<span style="color:var(--gray-300)">·</span>';
+      const l=['Q1','Q2','Q3','Q4'][i]+' Y1';
+      const qp=progs.find(x=>x.period===l);
+      const qs2=qp?qp.status:'planned';
+      const cc={planned:'#1CABE2','in-progress':'#F39C12',completed:'#2ECC71',delayed:'#E74C3C'};
+      return `<span title="${l}" style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${cc[qs2]||'#ddd'};cursor:pointer" onclick="openProgModal('${a.id}','','')"></span>`;
+    }).join(' ');
+    const subSpent=subs.reduce((s,sa)=>s+calcSubSpent(sa.id),0);
+    return `<tr><td class="tc">${a.activity_code}</td>
+      <td class="td"><span>${a.description.substring(0,75)}…</span><small>${proj.name||''} · ${out.output_code||''}</small></td>
+      <td>${qs}</td><td>${sbadge(st)}</td>
+      <td class="fm ts">${fmtM(a.total_budget)}</td>
+      <td class="fm ts ${aSpent?'':'tm'}">${aSpent?fmtM(aSpent):'—'}</td>
+      <td><span class="chip">${subs.length} sub-acts</span></td>
+      <td><button class="btn btn-purple btn-xs" onclick="openSubModal('${a.id}','${a.project_id}')">+ Sub</button>
+      <button class="btn btn-primary btn-xs" onclick="openProgModal('${a.id}','','')">+ Log</button></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="ph"><div><div class="pt">Activity Tracker</div><div class="ps">${disp.length} programme activities</div></div><button class="btn btn-primary" onclick="openProgModal('','','')">+ Log Progress</button></div>
+  <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:200px"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-500)">🔍</span><input style="width:100%;padding:9px 14px 9px 36px;border:1.5px solid var(--gray-300);border-radius:var(--rs);font-family:inherit;font-size:13px" placeholder="Search activities…" oninput="ft(this.value,'act-t')"></div>
+    <select style="padding:9px 14px;border:1.5px solid var(--gray-300);border-radius:var(--rs);font-family:inherit;font-size:13px;background:white" onchange="A.navParams.projectId=this.value;renderView()"><option value="">All Projects</option>${popts}</select>
+  </div>
+  <div class="card"><div class="tw"><table id="act-t"><thead><tr><th>Code</th><th>Activity</th><th>Quarters</th><th>Status</th><th>Budget</th><th>Spent</th><th>Sub-Acts</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="text-c tm ts" style="padding:40px">No activities.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ════════════════════════════════════════
+   PROGRESS LOG
+════════════════════════════════════════ */
+function renderProgress(){
+  const d=A.data;
+  const all=[...d.progress].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
+  const rows=all.map(pr=>{
+    const act=d.activities.find(a=>a.id===pr.activity_id)||{};
+    const sub=pr.sub_activity_id?d.subActivities.find(s=>s.id===pr.sub_activity_id):null;
+    const proj=d.projects.find(p=>p.id===pr.project_id)||{};
+    return `<tr>
+      <td class="tc">${sub?sub.sub_code:act.activity_code||'—'}</td>
+      <td class="td">${sub?`<span style="color:var(--purple);font-weight:700">${sub.description}</span><small>${act.activity_code} · <span class="scat ${sub.category}">${sub.category}</span></small>`:`<span>${(act.description||'').substring(0,60)}…</span><small>${proj.name||''}</small>`}</td>
+      <td><span class="chip">${pr.period}</span></td>
+      <td>${sbadge(pr.status)}</td>
+      <td class="ts fm">${sub&&pr.units_completed?`${pr.units_completed} ${sub.unit_type||'units'}`:(pr.percent_complete||0)+'%'}</td>
+      <td class="fm ts ${pr.actual_expenditure?'':'tm'}">${pr.actual_expenditure?fmtM(pr.actual_expenditure):'—'}</td>
+      <td class="ts" style="max-width:160px">${(pr.notes||'').substring(0,60)}${(pr.notes||'').length>60?'…':''}</td>
+      <td>${pr.evidence_url&&pr.evidence_url.startsWith('http')?`<a href="${pr.evidence_url}" target="_blank" class="btn btn-outline btn-xs">📎 View</a>`:'—'}</td>
+      <td class="ts tm">${pr.submitted_by||'—'}</td>
+      <td class="ts tm">${fmtD(pr.submitted_at)}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="delProg('${pr.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="ph"><div><div class="pt">Progress Log</div><div class="ps">${all.length} entries — monthly, sub-activity level</div></div><button class="btn btn-primary" onclick="openProgModal('','','')">+ Log Progress</button></div>
+  <div class="card"><div class="tw"><table><thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Period</th><th>Status</th><th>Units / %</th><th>Spent</th><th>Notes</th><th>Evidence</th><th>By</th><th>Date</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="11" class="text-c tm ts" style="padding:40px">No entries yet.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ════════════════════════════════════════
+   BUDGET TRACKER
+════════════════════════════════════════ */
+function renderBudget(){
+  return `<div class="ph"><div><div class="pt">Budget Tracker</div><div class="ps">Programme activities only — admin & overhead excluded</div></div></div>
+  <div class="nb">🔒 Output 4 (Security) and Output 5 (Programme Management) are excluded from all budget views here.</div>
+  ${A.data.projects.map(p=>renderProjBudget(p)).join('')||'<div class="es"><div class="es-i">💰</div><div class="es-t">No projects yet</div></div>'}`;
+}
+
+function renderProjBudget(p){
+  const d=A.data;
+  const po=d.outputs.filter(o=>o.project_id===p.id&&!isAdm(o));
+  const ao=d.outputs.filter(o=>o.project_id===p.id&&isAdm(o));
+  const pa=d.activities.filter(a=>a.project_id===p.id&&po.find(o=>o.id===a.output_id));
+  const pb=po.reduce((s,o)=>s+(o.total_budget||0),0);
+  const ab=ao.reduce((s,o)=>s+(o.total_budget||0),0);
+  const ps=d.progress.filter(x=>pa.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const spct=pb?Math.round(ps/pb*100):0;
+
+  const osections=po.map(o=>{
+    const acts=d.activities.filter(a=>a.output_id===o.id);
+    const oProg=d.progress.filter(x=>acts.find(a=>a.id===x.activity_id));
+    const oSpent=oProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    const oBalance=(o.total_budget||0)-oSpent;
+    const oPct=o.total_budget?Math.round(oSpent/o.total_budget*100):0;
+
+    const arows=acts.map(a=>{
+      const subs=d.subActivities.filter(s=>s.activity_id===a.id);
+      const aprogs=d.progress.filter(x=>x.activity_id===a.id);
+      const aSpent=aprogs.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const aBal=(a.total_budget||0)-aSpent;
+      const aPct=a.total_budget?Math.round(aSpent/a.total_budget*100):0;
+      const subAlloc=subs.reduce((s,x)=>s+(x.planned_budget||0),0);
+      const unalloc=(a.total_budget||0)-subAlloc;
+
+      const srows=subs.map(s=>{
+        const sSpent=calcSubSpent(s.id);
+        const sDone=d.progress.filter(x=>x.sub_activity_id===s.id).reduce((sum,x)=>sum+(x.units_completed||0),0);
+        const sBal=(s.planned_budget||0)-sSpent;
+        const sPct=s.planned_budget?Math.round(sSpent/s.planned_budget*100):0;
+        return `<tr style="background:#fafbff">
+          <td class="tc" style="padding-left:28px;color:var(--purple)">${s.sub_code}</td>
+          <td class="td">${s.description} <span class="scat ${s.category}">${s.category}</span>
+            <small style="font-family:'JetBrains Mono',monospace">${sDone}/${s.quantity} ${s.unit_type} @ ${fmtM(s.unit_cost)} each</small></td>
+          <td class="fm ts">${fmtM(s.planned_budget)}</td>
+          <td>—</td><td>—</td>
+          <td class="fm ts ${sSpent?'':'tm'}">${sSpent?fmtM(sSpent):'—'}</td>
+          <td class="fm ts ${sBal<0?'':'tm'}">${fmtM(sBal)}</td>
+          <td>${spendI(sSpent,s.planned_budget)}</td>
+          <td><div style="display:flex;align-items:center;gap:6px"><div class="pb" style="width:70px"><div class="pf p" style="width:${Math.min(sPct,100)}%"></div></div><span class="ts fm">${sPct}%</span></div></td>
+        </tr>`;
+      }).join('');
+
+      return `<tr>
+        <td class="tc">${a.activity_code}</td>
+        <td class="td"><span>${a.description.substring(0,80)}…</span>${subs.length?`<small>${subs.length} sub-acts · Unallocated: ${fmtM(unalloc)}</small>`:''}</td>
+        <td class="fm">${fmtM(a.total_budget)}</td>
+        <td class="fm ts">${fmtM(a.unicef_budget)}</td>
+        <td class="fm ts">${fmtM(a.cso_budget)}</td>
+        <td class="fm ${aSpent?'':'tm'}">${aSpent?fmtM(aSpent):'—'}</td>
+        <td class="fm ${aBal<0?'':'tm'}">${fmtM(aBal)}</td>
+        <td>${spendI(aSpent,a.total_budget)}</td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div class="pb" style="width:70px"><div class="pf ${aPct>90?'r':aPct>70?'a':'g'}" style="width:${Math.min(aPct,100)}%"></div></div><span class="ts fm">${aPct}%</span></div></td>
+      </tr>${srows}`;
+    }).join('');
+
+    return `<div style="font-size:13px;font-weight:800;color:var(--navy);padding:12px 0 8px;border-bottom:1px solid var(--gray-200);margin-bottom:12px;display:flex;gap:8px;align-items:center">
+      <span class="oc">${o.output_code}</span> ${o.description.substring(0,80)}…
+    </div>
+    <table style="margin-bottom:20px">
+      <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Budget</th><th>UNICEF</th><th>CSO</th><th>Spent</th><th>Balance</th><th>Status</th><th>Util.</th></tr></thead>
+      <tbody>${arows||'<tr><td colspan="9" class="tm ts text-c" style="padding:12px">No activities.</td></tr>'}
+      <tr style="background:#f5f7ff;font-weight:800">
+        <td colspan="2" class="ts">Output Total</td>
+        <td class="fm">${fmtM(o.total_budget)}</td>
+        <td class="fm ts">${fmtM(o.unicef_budget)}</td>
+        <td class="fm ts">${fmtM(o.cso_budget)}</td>
+        <td class="fm ${oSpent?'':'tm'}">${oSpent?fmtM(oSpent):'—'}</td>
+        <td class="fm">${fmtM(oBalance)}</td>
+        <td>${spendI(oSpent,o.total_budget)}</td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div class="pb" style="width:70px"><div class="pf" style="width:${Math.min(oPct,100)}%"></div></div><span class="ts fm">${oPct}%</span></div></td>
+      </tr></tbody>
+    </table>`;
+  }).join('');
+
+  return `<div class="card mb16">
+    <div class="ch"><span class="oc" style="background:var(--navy)">${p.ref_number||'PRJ'}</span><span class="ct">${p.name}</span><span>${sbadge(p.status)}</span></div>
+    <div class="cb">
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi navy" style="margin:0"><div class="kpi-lbl">Programme Budget</div><div class="kpi-val" style="font-size:18px">${fmtM(pb)}</div><div class="kpi-sub">Excl. ${fmtM(ab)} admin</div></div>
+        <div class="kpi ${ps>0?'amber':'blue'}" style="margin:0"><div class="kpi-lbl">Spent</div><div class="kpi-val" style="font-size:18px">${fmtM(ps)}</div><div class="kpi-sub">${spct}% utilised</div></div>
+        <div class="kpi ${(pb-ps)<0?'red':'green'}" style="margin:0"><div class="kpi-lbl">Balance</div><div class="kpi-val" style="font-size:18px">${fmtM(pb-ps)}</div></div>
+        <div class="kpi purple" style="margin:0"><div class="kpi-lbl">Admin (Excluded)</div><div class="kpi-val" style="font-size:18px">${fmtM(ab)}</div><div class="kpi-sub">Not in M&E scope</div></div>
+      </div>
+      <div class="divider"></div>
+      <p class="ts tm mb16">Purple rows = sub-activity detail with quantity × unit cost breakdown</p>
+      ${osections}
+      ${ao.length?`<div style="opacity:.5;margin-top:16px"><p class="ts tm mb8" style="font-style:italic">Admin outputs (excluded from M&E):</p>${ao.map(o=>`<div class="ts tm" style="padding:6px 0;border-bottom:1px solid var(--gray-200)"><strong>${o.output_code}</strong> — ${o.description.substring(0,80)} — ${fmtM(o.total_budget)}</div>`).join('')}</div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════
+   REPORTS
+════════════════════════════════════════ */
+function renderReports(){
+  return `<div class="ph"><div><div class="pt">Reports & Exports</div></div></div>
+  <div class="g2 mb24">
+    <div class="card"><div class="ch"><span>📊</span><span class="ct">Monthly Progress Report</span></div><div class="cb">
+      <p class="tm ts mb16">Implementation status by activity and sub-activity for a selected month.</p>
+      <div class="fg"><label class="fl">Project</label><select class="fc" id="rpt-proj">${A.data.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,50)}</option>`).join('')}</select></div>
+      <div class="fg2">
+        <div class="fg"><label class="fl">Month</label><select class="fc" id="rpt-month">${getProjectMonths(A.data.projects[0]||{start_date:'2025-09-01',end_date:'2026-08-31'}).map(m=>`<option>${m}</option>`).join('')}</select></div>
+        <div class="fg"><label class="fl">Include Sub-Activities</label><select class="fc" id="rpt-subs"><option value="yes">Yes</option><option value="no">No</option></select></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="genReport()">Generate Report</button>
+        <button class="btn btn-outline" onclick="genReport();setTimeout(()=>printReport(),400)">🖨 Generate & Print</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="ch"><span>📄</span><span class="ct">Funder Evidence PDF</span></div><div class="cb">
+      <p class="tm ts mb16">Generate a complete PDF evidence report for your funder (UNICEF). Includes all activities, expenditure, unit progress, and evidence document links — formatted for print or email attachment.</p>
+      <div class="fg"><label class="fl">Project</label><select class="fc" id="pdf-proj">${A.data.projects.map(p=>`<option value="${p.id}">${p.name.substring(0,50)}</option>`).join('')}</select></div>
+      <div class="fg2">
+        <div class="fg"><label class="fl">Reporting Period</label>
+          <select class="fc" id="pdf-period">
+            <option value="all">Full Project (all months)</option>
+            ${getProjectMonths(A.data.projects[0]||{start_date:'2025-09-01',end_date:'2026-08-31'}).map(m=>`<option value="${m}">${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Report Type</label>
+          <select class="fc" id="pdf-type">
+            <option value="full">Full Detail (activities + sub-activities)</option>
+            <option value="summary">Executive Summary (activities only)</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-navy" onclick="genFunderPDF()">📄 Generate PDF Report</button>
+      </div>
+      <div class="fh mt8">Opens a print-ready page. Use your browser's <strong>Print → Save as PDF</strong> to create a file for email to UNICEF.</div>
+    </div></div>
+  </div>
+  <div class="card mb24"><div class="ch"><span>📥</span><span class="ct">Export CSV</span></div><div class="cb">
+    <div class="fg2">
+      <div class="fg"><label class="fl">Data Type</label><select class="fc" id="exp-type">
+        <option value="progress">Progress Log (with unit data)</option>
+        <option value="subactivities">Sub-Activities & Spend</option>
+        <option value="budget">Budget Summary</option>
+      </select></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn btn-outline" onclick="runExport()">📥 Export CSV</button></div>
+    </div>
+  </div></div>
+  <div id="rpt-out"></div>`;
+}
+
+function printReport() { window.print(); }
+
+function genFunderPDF(){
+  const pid = document.getElementById('pdf-proj').value;
+  const period = document.getElementById('pdf-period').value;
+  const type = document.getElementById('pdf-type').value;
+  const p = A.data.projects.find(x=>x.id===pid); if(!p) return;
+
+  const progOutputs = A.data.outputs.filter(o=>o.project_id===pid&&!isAdm(o));
+  const acts = A.data.activities.filter(a=>a.project_id===pid&&progOutputs.find(o=>o.id===a.output_id));
+  const allProg = A.data.progress.filter(x=>acts.find(a=>a.id===x.activity_id));
+  const periodProg = period==='all' ? allProg : allProg.filter(x=>x.period===period);
+  const totalSpent = periodProg.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+  const progBudget = progOutputs.reduce((s,o)=>s+(o.total_budget||0),0);
+  const evidenceItems = allProg.filter(x=>x.evidence_url&&x.evidence_url.startsWith('http'));
+  const genDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Build activity rows
+  let actHtml = '';
+  progOutputs.forEach(o => {
+    const oActs = acts.filter(a=>a.output_id===o.id);
+    if (!oActs.length) return;
+    actHtml += `<tr class="out-row"><td colspan="8"><strong>${o.output_code}:</strong> ${o.description}</td></tr>`;
+    oActs.forEach(a => {
+      const aprogs = periodProg.filter(x=>x.activity_id===a.id);
+      const latest = aprogs.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+      const aSpent = aprogs.reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const st = latest ? latest.status : 'Not Started';
+      const stStyle = st==='completed'?'color:#1a8a4e':st==='delayed'?'color:#a93226':st==='in-progress'?'color:#9a6700':'color:#555';
+      const evLinks = allProg.filter(x=>x.activity_id===a.id&&x.evidence_url&&x.evidence_url.startsWith('http'));
+      actHtml += `<tr><td class="code">${a.activity_code}</td>
+        <td>${a.description}</td>
+        <td style="${stStyle};font-weight:700">${st.charAt(0).toUpperCase()+st.slice(1)}</td>
+        <td class="num">${latest?(latest.percent_complete||0)+'%':'—'}</td>
+        <td class="num">\$${(a.total_budget||0).toLocaleString()}</td>
+        <td class="num">${aSpent?'\$'+aSpent.toLocaleString():'—'}</td>
+        <td class="num">${latest?latest.period:'—'}</td>
+        <td>${evLinks.map(e=>`<a href="${e.evidence_url}" target="_blank">📎 ${e.period}</a>`).join('<br>')||'—'}</td>
+      </tr>`;
+      if (type==='full') {
+        const subs = A.data.subActivities.filter(s=>s.activity_id===a.id);
+        subs.forEach(s => {
+          const sProg = periodProg.filter(x=>x.sub_activity_id===s.id);
+          const sSpent = sProg.reduce((sum,x)=>sum+(x.actual_expenditure||0),0);
+          const sDone = sProg.reduce((sum,x)=>sum+(x.units_completed||0),0);
+          const sLatest = sProg.sort((x,y)=>new Date(y.submitted_at)-new Date(x.submitted_at))[0];
+          const sev = allProg.filter(x=>x.sub_activity_id===s.id&&x.evidence_url&&x.evidence_url.startsWith('http'));
+          actHtml += `<tr class="sub-row">
+            <td class="code" style="padding-left:20px;color:#6d28d9">${s.sub_code}</td>
+            <td style="padding-left:20px;font-style:italic">${s.description} <em style="color:#888">(${s.category})</em><br>
+              <small>${sDone}/${s.quantity} ${s.unit_type} @ \$${(s.unit_cost||0).toLocaleString()} each</small></td>
+            <td style="color:#6d28d9;font-weight:600">${sLatest?sLatest.status.charAt(0).toUpperCase()+sLatest.status.slice(1):'—'}</td>
+            <td class="num">${s.quantity?Math.round(sDone/s.quantity*100)+'%':'—'}</td>
+            <td class="num">\$${(s.planned_budget||0).toLocaleString()}</td>
+            <td class="num">${sSpent?'\$'+sSpent.toLocaleString():'—'}</td>
+            <td class="num">${sLatest?sLatest.period:'—'}</td>
+            <td>${sev.map(e=>`<a href="${e.evidence_url}" target="_blank">📎 ${e.period}</a>`).join('<br>')||'—'}</td>
+          </tr>`;
+        });
+      }
+    });
+  });
+
+  // Build evidence section
+  let evHtml = '';
+  evidenceItems.forEach(pr => {
+    const act = A.data.activities.find(x=>x.id===pr.activity_id)||{};
+    const sub = pr.sub_activity_id ? A.data.subActivities.find(x=>x.id===pr.sub_activity_id) : null;
+    evHtml += `<tr>
+      <td class="code">${sub?sub.sub_code:act.activity_code||'—'}</td>
+      <td>${sub?sub.description:(act.description||'').substring(0,80)}</td>
+      <td>${pr.period}</td>
+      <td>${pr.notes||'—'}</td>
+      <td><a href="${pr.evidence_url}" target="_blank">${pr.evidence_url.length>60?pr.evidence_url.substring(0,60)+'…':pr.evidence_url}</a></td>
+      <td>${pr.submitted_by||'—'}</td>
+    </tr>`;
+  });
+
+  const periodLabel = period==='all'?`Full Project (${fmtD(p.start_date)} – ${fmtD(p.end_date)})`:period;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Evidence Report — ${p.name}</title>
+<style>
+  @page{margin:18mm 15mm;size:A4}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:10pt;color:#1a202c;background:white}
+  .cover{padding:40px 0 30px;border-bottom:3px solid #0D2B4E;margin-bottom:24px}
+  .cover-logo{font-size:28pt;font-weight:900;color:#0D2B4E;letter-spacing:-1px}
+  .cover-logo span{color:#1CABE2}
+  .cover-title{font-size:14pt;font-weight:700;color:#0D2B4E;margin-top:8px;line-height:1.3}
+  .cover-meta{font-size:9pt;color:#555;margin-top:6px}
+  .cover-meta strong{color:#0D2B4E}
+  .kpi-row{display:flex;gap:16px;margin:20px 0;flex-wrap:wrap}
+  .kpi-box{border:1px solid #d5d9e4;border-radius:8px;padding:12px 16px;flex:1;min-width:120px}
+  .kpi-box .val{font-size:18pt;font-weight:800;color:#0D2B4E;font-family:monospace}
+  .kpi-box .lbl{font-size:8pt;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .notice{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;font-size:9pt;color:#856404;margin:16px 0}
+  h2{font-size:12pt;color:#0D2B4E;font-weight:800;margin:24px 0 10px;border-bottom:2px solid #eef0f5;padding-bottom:6px}
+  h3{font-size:10pt;color:#0D2B4E;margin:14px 0 6px}
+  table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:16px}
+  th{background:#0D2B4E;color:white;padding:7px 8px;text-align:left;font-size:8pt;white-space:nowrap}
+  td{padding:6px 8px;border-bottom:1px solid #eef0f5;vertical-align:top}
+  .out-row td{background:#e8eef6;font-weight:700;font-size:9pt;color:#0D2B4E;padding:8px}
+  .sub-row td{background:#fafbff}
+  .code{font-family:monospace;font-weight:600;white-space:nowrap;color:#0D2B4E}
+  .num{text-align:right;white-space:nowrap}
+  a{color:#1CABE2;word-break:break-all}
+  .footer{margin-top:30px;padding-top:12px;border-top:1px solid #eee;font-size:8pt;color:#888;display:flex;justify-content:space-between}
+  .confidential{background:#fdedec;border:1px solid #f5c6cb;border-radius:4px;padding:8px 12px;font-size:8.5pt;color:#a93226;margin-bottom:16px;font-weight:600}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none}}
+</style>
+</head><body>
+<div style="text-align:right;margin-bottom:8px" class="no-print">
+  <button onclick="window.print()" style="background:#0D2B4E;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">🖨 Print / Save as PDF</button>
+</div>
+<div class="cover">
+  <div class="cover-logo">Activity<span>Track</span></div>
+  <div class="cover-title">Implementation Evidence Report</div>
+  <div class="cover-meta">
+    <strong>Project:</strong> ${p.name}<br>
+    <strong>Partner:</strong> ${p.partner} &nbsp;|&nbsp; <strong>Funder:</strong> ${p.funder}<br>
+    <strong>Reference:</strong> ${p.ref_number||'N/A'} &nbsp;|&nbsp; <strong>Reporting Period:</strong> ${periodLabel}<br>
+    <strong>Generated:</strong> ${genDate} &nbsp;|&nbsp; <strong>Prepared by:</strong> ${A.session.name}
+  </div>
+</div>
+<div class="confidential">🔒 CONFIDENTIAL — For official use by ${p.funder} only. Do not distribute beyond authorised personnel.</div>
+<div class="kpi-row">
+  <div class="kpi-box"><div class="val">${acts.length}</div><div class="lbl">Programme Activities</div></div>
+  <div class="kpi-box"><div class="val">\$${progBudget.toLocaleString()}</div><div class="lbl">Total Programme Budget</div></div>
+  <div class="kpi-box"><div class="val">\$${totalSpent.toLocaleString()}</div><div class="lbl">Expenditure (Period)</div></div>
+  <div class="kpi-box"><div class="val">${evidenceItems.length}</div><div class="lbl">Evidence Documents</div></div>
+  <div class="kpi-box"><div class="val">${progBudget?Math.round(totalSpent/progBudget*100):0}%</div><div class="lbl">Budget Utilised</div></div>
+</div>
+<div class="notice">ℹ Admin costs (Programme Management, Security) are excluded from this report. Only programme delivery activities are shown.</div>
+<h2>Implementation Status by Activity</h2>
+<table>
+  <thead><tr><th>Code</th><th>Activity / Sub-Activity</th><th>Status</th><th>%</th><th>Budget</th><th>Spent</th><th>Last Period</th><th>Evidence</th></tr></thead>
+  <tbody>${actHtml||'<tr><td colspan="8" style="text-align:center;color:#888;padding:20px">No data for selected period.</td></tr>'}</tbody>
+</table>
+${evidenceItems.length ? `<h2>Evidence Document Index</h2>
+<table>
+  <thead><tr><th>Code</th><th>Activity</th><th>Period</th><th>Notes</th><th>Document Link</th><th>Submitted By</th></tr></thead>
+  <tbody>${evHtml}</tbody>
+</table>` : ''}
+<h2>Certifications</h2>
+<div style="display:flex;gap:40px;margin-top:8px">
+  <div style="flex:1;border-top:1px solid #333;padding-top:8px;font-size:9pt"><strong>Prepared by (M&E Officer)</strong><br><br>${A.session.name}<br>${genDate}</div>
+  <div style="flex:1;border-top:1px solid #333;padding-top:8px;font-size:9pt"><strong>Verified by (Programme Manager)</strong><br><br>________________________<br>Date: _________________</div>
+  <div style="flex:1;border-top:1px solid #333;padding-top:8px;font-size:9pt"><strong>Acknowledged by (UNICEF)</strong><br><br>________________________<br>Date: _________________</div>
+</div>
+<div class="footer"><span>ActivityTrack M&E System · ${p.partner}</span><span>Page 1 of 1 · Generated ${genDate}</span></div>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=1000,height=700');
+  if (!w) { toast('Allow pop-ups to generate PDF','wa'); return; }
+  w.document.write(html);
+  w.document.close();
+  toast('PDF report opened — use Print → Save as PDF','ok', 5000);
+}
+
+function genReport(){
+  const pid=document.getElementById('rpt-proj').value;
+  const month=document.getElementById('rpt-month').value;
+  const incSubs=document.getElementById('rpt-subs').value==='yes';
+  const p=A.data.projects.find(x=>x.id===pid); if(!p)return;
+  const po=A.data.outputs.filter(o=>o.project_id===pid&&!isAdm(o));
+  const acts=A.data.activities.filter(a=>a.project_id===pid&&po.find(o=>o.id===a.output_id));
+  let rows='';
+  acts.forEach(a=>{
+    const pr=A.data.progress.find(x=>x.activity_id===a.id&&x.period===month&&!x.sub_activity_id);
+    const out=po.find(o=>o.id===a.output_id)||{};
+    const aSpent=A.data.progress.filter(x=>x.activity_id===a.id&&x.period===month).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+    rows+=`<tr><td class="tc">${a.activity_code}</td><td>${out.output_code||'—'}</td><td class="td">${a.description.substring(0,100)}</td><td>${pr?sbadge(pr.status):sbadge('not-started')}</td><td class="fm ts">${pr?(pr.percent_complete||0)+'%':'0%'}</td><td class="fm">${fmtM(a.total_budget)}</td><td class="fm">${aSpent?fmtM(aSpent):'—'}</td><td class="ts">${pr?(pr.notes||''):'—'}</td><td>${pr&&pr.evidence_url&&pr.evidence_url.startsWith('http')?`<a href="${pr.evidence_url}" target="_blank" class="btn btn-outline btn-xs">📎</a>`:'—'}</td></tr>`;
+    if(incSubs){
+      A.data.subActivities.filter(s=>s.activity_id===a.id).forEach(s=>{
+        const sp=A.data.progress.find(x=>x.sub_activity_id===s.id&&x.period===month);
+        const sSpent=A.data.progress.filter(x=>x.sub_activity_id===s.id&&x.period===month).reduce((ss,x)=>ss+(x.actual_expenditure||0),0);
+        rows+=`<tr style="background:#f9f9ff"><td class="tc" style="color:var(--purple);padding-left:22px">${s.sub_code}</td><td></td><td class="td" style="padding-left:22px;font-style:italic">${s.description} <span class="scat ${s.category}">${s.category}</span><small>${s.quantity} ${s.unit_type} @ ${fmtM(s.unit_cost)}</small></td><td>${sp?sbadge(sp.status):'—'}</td><td class="fm ts">${sp?`${sp.units_completed||0} ${s.unit_type}`:'—'}</td><td class="fm">${fmtM(s.planned_budget)}</td><td class="fm">${sSpent?fmtM(sSpent):'—'}</td><td class="ts">${sp?(sp.notes||''):'—'}</td><td>${sp&&sp.evidence_url&&sp.evidence_url.startsWith('http')?`<a href="${sp.evidence_url}" target="_blank" class="btn btn-outline btn-xs">📎</a>`:'—'}</td></tr>`;
+      });
+    }
+  });
+  document.getElementById('rpt-out').innerHTML=`<div class="card"><div class="ch"><span>📊</span><span class="ct">Report — ${month}</span><span class="ts tm">${p.name} · ${p.partner}</span></div>
+  <div class="cb"><p class="ts tm mb16">Generated: ${new Date().toLocaleString()} · ${incSubs?'Includes sub-activity breakdown':''}</p></div>
+  <div class="tw"><table><thead><tr><th>Code</th><th>Output</th><th>Activity / Sub-Activity</th><th>Status</th><th>Units / %</th><th>Budget</th><th>Spent</th><th>Notes</th><th>Evidence</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="cf"><button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print</button></div>
+  </div>`;
+}
+
+function runExport(){
+  const type=document.getElementById('exp-type')?.value||'progress';
+  let h,rows,fn;
+  if(type==='progress'){
+    h=['ID','Activity Code','Sub-Activity Code','Category','Unit Type','Units Completed','Project','Period','Status','% Complete','Actual Spend','Notes','Evidence URL','Submitted By','Date'];
+    rows=A.data.progress.map(pr=>{
+      const a=A.data.activities.find(x=>x.id===pr.activity_id)||{};
+      const s=pr.sub_activity_id?A.data.subActivities.find(x=>x.id===pr.sub_activity_id):null;
+      const p=A.data.projects.find(x=>x.id===pr.project_id)||{};
+      return [pr.id,a.activity_code||'',s?s.sub_code:'',s?s.category:'',s?s.unit_type:'',pr.units_completed||0,p.name||'',pr.period,pr.status,pr.percent_complete,pr.actual_expenditure,pr.notes,pr.evidence_url,pr.submitted_by,pr.submitted_at];
+    });
+    fn='progress_log.csv';
+  } else if(type==='subactivities'){
+    h=['Sub Code','Activity Code','Description','Category','Unit Type','Planned Qty','Unit Cost','Planned Budget','Units Done','Total Spent','% Utilised'];
+    rows=A.data.subActivities.map(s=>{
+      const a=A.data.activities.find(x=>x.id===s.activity_id)||{};
+      const done=A.data.progress.filter(x=>x.sub_activity_id===s.id).reduce((sum,x)=>sum+(x.units_completed||0),0);
+      const spent=calcSubSpent(s.id);
+      const pct=s.planned_budget?Math.round(spent/s.planned_budget*100):0;
+      return [s.sub_code,a.activity_code||'',s.description,s.category,s.unit_type,s.quantity,s.unit_cost,s.planned_budget,done,spent,pct+'%'];
+    });
+    fn='sub_activities.csv';
+  } else {
+    h=['Project','Funder','Prog. Budget','Admin Budget','Spent','Balance'];
+    rows=A.data.projects.map(p=>{
+      const po=A.data.outputs.filter(o=>o.project_id===p.id&&!isAdm(o));
+      const ao=A.data.outputs.filter(o=>o.project_id===p.id&&isAdm(o));
+      const pa=A.data.activities.filter(a=>a.project_id===p.id&&po.find(o=>o.id===a.output_id));
+      const spent=A.data.progress.filter(x=>pa.find(a=>a.id===x.activity_id)).reduce((s,x)=>s+(x.actual_expenditure||0),0);
+      const pb=po.reduce((s,o)=>s+(o.total_budget||0),0);
+      return [p.name,p.funder,pb,ao.reduce((s,o)=>s+(o.total_budget||0),0),spent,pb-spent];
+    });
+    fn='budget_summary.csv';
+  }
+  const csv=[h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const bl=new Blob([csv],{type:'text/csv'}); const al=document.createElement('a'); al.href=URL.createObjectURL(bl); al.download=fn; al.click();
+  toast('CSV exported ✓','ok');
+}
+
+/* ════════════════════════════════════════
+   USERS
+════════════════════════════════════════ */
+function renderUsers(){
+  const rows=A.data.users.map(u=>`<tr>
+    <td>${u.name||'—'}</td><td class="tc">${u.username||'—'}</td><td>${u.org||'—'}</td>
+    <td><span class="badge ${u.role==='admin'?'b-pl':u.role==='reporter'?'b-ip':'b-ns'}">${u.role}</span></td>
+    <td>${sbadge(u.status||'active')}</td>
+    <td class="ts tm">${fmtD(u.created_at)}</td>
+    <td><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">Remove</button></td>
+  </tr>`).join('');
+  return `<div class="ph"><div><div class="pt">User Management</div><div class="ps">${A.data.users.length} users — username + password authentication</div></div><button class="btn btn-primary" onclick="openUserModal()">+ Add User</button></div>
+  <div class="nb info">ℹ After adding a user, share their username and password securely. Passwords are stored as SHA-256 hashes — never in plain text.</div>
+  <div class="card"><div class="tw"><table><thead><tr><th>Name</th><th>Username</th><th>Org</th><th>Role</th><th>Status</th><th>Joined</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="text-c tm ts" style="padding:40px">No users.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ════════════════════════════════════════
+   SETTINGS
+════════════════════════════════════════ */
+function renderSettings(){
+  return `<div class="pt mb24">Settings</div>
+  <div class="ss"><div class="ss-t">Google Sheets Integration</div>
+    <div class="ss-r"><div class="ss-l"><strong>Apps Script Web App URL</strong><span>Deployed JSONP endpoint for live sync.</span></div><div style="flex:2"><input type="url" class="fc" id="gs-url" value="${A.scriptUrl}" placeholder="https://script.google.com/macros/s/..."></div></div>
+    <div class="ss-r"><div></div><div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="saveUrl()">Save</button><button class="btn btn-outline" onclick="syncData()">Test Connection</button></div></div>
+  </div>
+  <div class="ss"><div class="ss-t">Funder Evidence Report</div>
+    <div class="ss-r"><div class="ss-l"><strong>Generate PDF for UNICEF</strong><span>Go to Reports → Funder Evidence PDF to generate a print-ready implementation evidence report.</span></div><button class="btn btn-outline" onclick="nav('reports')">Go to Reports →</button></div>
+  </div>
+  <div class="ss"><div class="ss-t">Profile</div>
+    <div class="ss-r"><div class="ss-l"><strong>Name</strong></div><input class="fc" id="pf-name" value="${A.session.name||''}" style="flex:2"></div>
+    <div class="ss-r"><div class="ss-l"><strong>Organization</strong></div><input class="fc" id="pf-org" value="${A.session.org||''}" style="flex:2"></div>
+    <div class="ss-r"><div class="ss-l"><strong>Change Password</strong><span>Enter a new password (min. 8 characters).</span></div>
+      <div style="flex:2;position:relative"><input type="password" class="fc" id="pf-pw" placeholder="New password" style="padding-right:42px"><button class="pw-toggle" onclick="const f=document.getElementById('pf-pw');f.type=f.type==='password'?'text':'password'">👁</button></div>
+    </div>
+    <div class="ss-r"><div></div><button class="btn btn-primary" onclick="saveProfile()">Save Profile</button></div>
+  </div>
+  <div class="ss"><div class="ss-t">Data</div>
+    <div class="ss-r"><div class="ss-l"><strong>Load Demo Data</strong><span>Eye Media / UNICEF 2025-2026 with sub-activities and monthly progress.</span></div><button class="btn btn-outline" onclick="loadDemo()">Load Demo</button></div>
+    <div class="ss-r"><div class="ss-l"><strong>Clear Local Data</strong></div><button class="btn btn-danger" onclick="clearData()">Clear</button></div>
+  </div>
+  <div class="ss"><div class="ss-t">About</div>
+    <div class="ss-r"><div class="ss-l"><strong>ActivityTrack</strong><span>M&E Implementation Monitor v3.1</span></div><span class="chip">v3.1</span></div>
+    <div class="ss-r"><div class="ss-l"><strong>Architecture</strong><span>GitHub Pages · Google Sheets · Apps Script · IndexedDB · SHA-256 Auth</span></div></div>
+  </div>`;
+}
+
+function saveUrl(){ A.scriptUrl=document.getElementById('gs-url').value.trim(); dbSetting('scriptUrl',A.scriptUrl); toast('URL saved ✓','ok'); }
+async function saveProfile(){
+  A.session.name=document.getElementById('pf-name').value;
+  A.session.org=document.getElementById('pf-org').value;
+  const pw=document.getElementById('pf-pw')?.value;
+  if(pw&&pw.length>=8){
+    const hash=await sha256((A.session.username||A.session.name.toLowerCase())+':'+pw);
+    const u=A.data.users.find(x=>x.id===A.session.id||x.username===A.session.username);
+    if(u){ u.password_hash=hash; dbPut('users',u); post2sheets('saveUser',u); }
+  } else if(pw && pw.length>0) { toast('Password must be at least 8 characters','wa'); return; }
+  dbSetting('session',A.session);
+  document.getElementById('user-nm').textContent=A.session.name;
+  document.getElementById('user-av').textContent=(A.session.name||'U').charAt(0).toUpperCase();
+  toast('Profile saved ✓','ok');
+}
+async function loadDemo(){
+  if(!confirm('Load Eye Media demo data?'))return;
+  A.data=JSON.parse(JSON.stringify(DEMO)); await saveAll(); renderView(); toast('Demo data loaded ✓','ok');
+}
+async function clearData(){
+  if(!confirm('Clear all local data?'))return;
+  A.data={projects:[],outputs:[],activities:[],subActivities:[],progress:[],users:[]};
+  await saveAll(); renderView(); toast('Cleared','wa');
+}
+async function saveAll(){ for(const s of ['projects','outputs','activities','subActivities','progress','users']) for(const i of (A.data[s]||[])) await dbPut(s,i); }
+
+/* ════════════════════════════════════════
+   MODAL — PROJECT
+════════════════════════════════════════ */
+function openProjModal(editId){
+  const p=editId?A.data.projects.find(x=>x.id===editId):{};
+  showM(`<div class="md md-lg"><div class="mh"><span>📁</span><span class="mt">${editId?'Edit':'New'} Project</span><button class="mx" onclick="closeM()">×</button></div><div class="mb2">
+    <input type="hidden" id="pi" value="${p.id||''}">
+    <div class="fg2"><div class="fg" style="grid-column:1/3"><label class="fl">Project Name *</label><input type="text" class="fc" id="pn2" value="${p.name||''}"></div>
+    <div class="fg"><label class="fl">Funder *</label><input class="fc" id="pfu" value="${p.funder||''}" placeholder="UNICEF South Sudan"></div>
+    <div class="fg"><label class="fl">Implementing Partner *</label><input class="fc" id="ppa" value="${p.partner||''}"></div>
+    <div class="fg"><label class="fl">Reference Number</label><input class="fc" id="pre" value="${p.ref_number||''}"></div>
+    <div class="fg"><label class="fl">Sector</label><input class="fc" id="pse" value="${p.sector||''}"></div>
+    <div class="fg"><label class="fl">Start Date</label><input type="date" class="fc" id="psd" value="${p.start_date||''}"></div>
+    <div class="fg"><label class="fl">End Date</label><input type="date" class="fc" id="ped" value="${p.end_date||''}"></div></div>
+    <div class="fg3"><div class="fg"><label class="fl">Total Budget (USD)</label><input type="number" class="fc" id="pbu" value="${p.total_budget||''}"></div>
+    <div class="fg"><label class="fl">UNICEF Contribution</label><input type="number" class="fc" id="pun" value="${p.unicef_budget||''}"></div>
+    <div class="fg"><label class="fl">CSO Contribution</label><input type="number" class="fc" id="pcs" value="${p.cso_budget||''}"></div></div>
+    <div class="fg"><label class="fl">Status</label><select class="fc" id="pst"><option value="active" ${(p.status||'active')==='active'?'selected':''}>Active</option><option value="closed" ${p.status==='closed'?'selected':''}>Closed</option></select></div>
+  </div><div class="mf"><button class="btn btn-outline" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveProject()">💾 Save</button></div></div>`);
+}
+function saveProject(){
+  const id=document.getElementById('pi').value||uid();
+  const proj={id,name:document.getElementById('pn2').value.trim(),funder:document.getElementById('pfu').value.trim(),partner:document.getElementById('ppa').value.trim(),ref_number:document.getElementById('pre').value.trim(),sector:document.getElementById('pse').value.trim(),start_date:document.getElementById('psd').value,end_date:document.getElementById('ped').value,total_budget:parseFloat(document.getElementById('pbu').value)||0,unicef_budget:parseFloat(document.getElementById('pun').value)||0,cso_budget:parseFloat(document.getElementById('pcs').value)||0,status:document.getElementById('pst').value,created_at:new Date().toISOString()};
+  if(!proj.name||!proj.funder){toast('Name and Funder required','er');return;}
+  const idx=A.data.projects.findIndex(x=>x.id===id);
+  if(idx>=0)A.data.projects[idx]=proj;else A.data.projects.push(proj);
+  dbPut('projects',proj);post2sheets('saveProject',proj);closeM();renderView();toast('Project saved ✓','ok');
+}
+function delProject(id){if(!confirm('Delete project?'))return;A.data.projects=A.data.projects.filter(x=>x.id!==id);dbDel('projects',id);renderView();toast('Deleted','wa');}
+
+/* ════════════════════════════════════════
+   MODAL — OUTPUT
+════════════════════════════════════════ */
+function openOutputModal(pid){
+  showM(`<div class="md"><div class="mh"><span>📋</span><span class="mt">Add Output</span><button class="mx" onclick="closeM()">×</button></div><div class="mb2">
+    <input type="hidden" id="opid" value="${pid}">
+    <div class="fg"><label class="fl">Output Code *</label><input class="fc" id="oc2" placeholder="Output 1"></div>
+    <div class="fg"><label class="fl">Description *</label><textarea class="fc" id="od2" rows="3"></textarea></div>
+    <div class="fg"><label class="fl">Output Type *</label>
+      <select class="fc" id="oia">
+        <option value="false">Programme Output (tracked in M&E)</option>
+        <option value="true">Administrative / Overhead (excluded from M&E)</option>
+      </select>
+      <div class="fh">Admin outputs (Programme Management, Security) are excluded from budget monitoring.</div>
+    </div>
+    <div class="fg3">
+      <div class="fg"><label class="fl">Total Budget</label><input type="number" class="fc" id="obu" placeholder="0"></div>
+      <div class="fg"><label class="fl">UNICEF</label><input type="number" class="fc" id="oun" placeholder="0"></div>
+      <div class="fg"><label class="fl">CSO</label><input type="number" class="fc" id="ocs" placeholder="0"></div>
+    </div>
+  </div><div class="mf"><button class="btn btn-outline" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveOutput()">Save Output</button></div></div>`);
+}
+function saveOutput(){
+  const out={id:uid(),project_id:document.getElementById('opid').value,output_code:document.getElementById('oc2').value.trim(),description:document.getElementById('od2').value.trim(),is_admin:document.getElementById('oia').value==='true',total_budget:parseFloat(document.getElementById('obu').value)||0,unicef_budget:parseFloat(document.getElementById('oun').value)||0,cso_budget:parseFloat(document.getElementById('ocs').value)||0};
+  if(!out.output_code||!out.description){toast('Code and description required','er');return;}
+  A.data.outputs.push(out);dbPut('outputs',out);post2sheets('saveOutput',out);closeM();renderView();toast('Output added ✓','ok');
+}
+
+/* ════════════════════════════════════════
+   MODAL — SUB-ACTIVITY
+════════════════════════════════════════ */
+function openSubModal(actId, projId, editId){
+  const a=A.data.activities.find(x=>x.id===actId)||{};
+  const existing=editId?A.data.subActivities.find(x=>x.id===editId):{};
+  const s=existing||{};
+  const existSubs=A.data.subActivities.filter(x=>x.activity_id===actId&&x.id!==editId);
+  const allocated=existSubs.reduce((sum,x)=>sum+(x.planned_budget||0),0);
+  const remaining=(a.total_budget||0)-allocated;
+  const nextNum=existSubs.length+1;
+
+  showM(`<div class="md"><div class="mh"><span style="color:var(--purple)">🔹</span><span class="mt">${editId?'Edit':'Add'} Sub-Activity</span><button class="mx" onclick="closeM()">×</button></div><div class="mb2">
+    <input type="hidden" id="si2" value="${s.id||''}">
+    <input type="hidden" id="sai" value="${actId}">
+    <input type="hidden" id="spi" value="${projId}">
+    <div style="background:var(--blue-bg);border-radius:var(--rs);padding:10px 14px;margin-bottom:16px;font-size:13px">
+      <strong>${a.activity_code||''}</strong> — ${(a.description||'').substring(0,80)}…<br>
+      <span class="tm ts fm">Activity budget: ${fmtM(a.total_budget)} · Allocated: ${fmtM(allocated)} · Remaining: <strong style="color:var(--navy)">${fmtM(remaining)}</strong></span>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label class="fl">Sub-Activity Code *</label><input class="fc" id="scode" value="${s.sub_code||(a.activity_code+'.'+nextNum)}" placeholder="${(a.activity_code||'Act')}.${nextNum}"></div>
+      <div class="fg"><label class="fl">Category *</label><select class="fc" id="scat2">${SUB_CATS.map(c=>`<option value="${c}" ${s.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg"><label class="fl">Description *</label><input class="fc" id="sdesc" value="${s.description||''}" placeholder="e.g. Script writing and translation (8 languages)"></div>
+    <div class="fg2">
+      <div class="fg"><label class="fl">Unit Type *</label>
+        <input class="fc" id="sutype" list="unit-types-list" value="${s.unit_type||''}" placeholder="script, session, episode…">
+        <datalist id="unit-types-list">${UNIT_TYPES.map(u=>`<option>${u}</option>`).join('')}</datalist>
+      </div>
+      <div></div>
+    </div>
+    <div class="fg3">
+      <div class="fg"><label class="fl">Planned Quantity *</label><input type="number" class="fc" id="sqty" value="${s.quantity||''}" placeholder="48" oninput="calcSub()"></div>
+      <div class="fg"><label class="fl">Unit Cost (USD) *</label><input type="number" class="fc" id="suct" value="${s.unit_cost||''}" placeholder="375" oninput="calcSub()"></div>
+      <div class="fg"><label class="fl">Planned Budget</label><input type="number" class="fc" id="sbud" value="${s.planned_budget||''}" readonly style="background:var(--gray-100)"></div>
+    </div>
+    <div class="unit-calc" id="sub-calc-display">${s.quantity&&s.unit_cost?`${s.quantity} ${s.unit_type||'units'} × ${fmtM(s.unit_cost)} = <strong>${fmtM(s.planned_budget)}</strong>`:'Fill in quantity and unit cost above'}</div>
+    <div class="fh" id="sub-rem-hint">Budget remaining for this activity after this entry: <strong>${fmtM(remaining-(s.planned_budget||0))}</strong></div>
+  </div><div class="mf"><button class="btn btn-outline" onclick="closeM()">Cancel</button><button class="btn btn-purple" onclick="saveSub()">💾 Save Sub-Activity</button></div></div>`);
+}
+function calcSub(){
+  const qty=parseFloat(document.getElementById('sqty').value)||0;
+  const uc=parseFloat(document.getElementById('suct').value)||0;
+  const utype=document.getElementById('sutype').value||'units';
+  const total=qty*uc;
+  const bud=document.getElementById('sbud'); if(bud)bud.value=total||'';
+  const disp=document.getElementById('sub-calc-display');
+  if(disp) disp.innerHTML=qty&&uc?`${qty} ${utype} × ${fmtM(uc)} = <strong>${fmtM(total)}</strong>`:'Fill in quantity and unit cost above';
+  const actId=document.getElementById('sai').value;
+  const editId=document.getElementById('si2').value;
+  const a=A.data.activities.find(x=>x.id===actId)||{};
+  const existSubs=A.data.subActivities.filter(x=>x.activity_id===actId&&x.id!==editId);
+  const allocated=existSubs.reduce((s,x)=>s+(x.planned_budget||0),0);
+  const remaining=(a.total_budget||0)-allocated;
+  const hint=document.getElementById('sub-rem-hint');
+  if(hint){const after=remaining-total;hint.innerHTML=after<0?`<span style="color:var(--red);font-weight:700">⚠ Exceeds by ${fmtM(Math.abs(after))}</span>`:`Remaining after this entry: <strong>${fmtM(after)}</strong>`;}
+}
+function saveSub(){
+  const id=document.getElementById('si2').value||uid();
+  const qty=parseFloat(document.getElementById('sqty').value)||0;
+  const uc=parseFloat(document.getElementById('suct').value)||0;
+  const sa={id,activity_id:document.getElementById('sai').value,project_id:document.getElementById('spi').value,sub_code:document.getElementById('scode').value.trim(),description:document.getElementById('sdesc').value.trim(),category:document.getElementById('scat2').value,unit_type:document.getElementById('sutype').value.trim(),quantity:qty,unit_cost:uc,planned_budget:qty*uc,created_at:new Date().toISOString()};
+  if(!sa.sub_code||!sa.description||!sa.unit_type){toast('Code, description and unit type required','er');return;}
+  const idx=A.data.subActivities.findIndex(x=>x.id===id);
+  if(idx>=0)A.data.subActivities[idx]=sa;else A.data.subActivities.push(sa);
+  dbPut('subActivities',sa);post2sheets('saveSubActivity',sa);closeM();renderView();toast('Sub-activity saved ✓','ok');
+}
+function editSub(id){const s=A.data.subActivities.find(x=>x.id===id);if(s)openSubModal(s.activity_id,s.project_id,id);}
+function delSub(id){if(!confirm('Delete sub-activity?'))return;A.data.subActivities=A.data.subActivities.filter(x=>x.id!==id);dbDel('subActivities',id);renderView();toast('Deleted','wa');}
+
+/* ════════════════════════════════════════
+   MODAL — PROGRESS (monthly + units)
+════════════════════════════════════════ */
+function openProgModal(actId, period, subId){
+  const d=A.data;
+  const progActs=d.activities.filter(a=>!isAdm(d.outputs.find(o=>o.id===a.output_id)));
+  const aOpts=progActs.map(a=>{
+    const p=d.projects.find(x=>x.id===a.project_id)||{};
+    return `<option value="${a.id}" ${a.id===actId?'selected':''}>${a.activity_code} — ${a.description.substring(0,55)} (${p.name||''})</option>`;
+  }).join('');
+  const subs=actId?d.subActivities.filter(s=>s.activity_id===actId):[];
+  const subOpts=`<option value="">— Log at activity level (no sub-activity) —</option>`+subs.map(s=>`<option value="${s.id}" ${s.id===subId?'selected':''}>${s.sub_code} · ${s.description} (${s.category})</option>`).join('');
+  const proj=d.projects[0]||{start_date:'2025-09-01',end_date:'2026-08-31'};
+  const months=getProjectMonths(proj);
+  // Default to most recent month
+  const now=new Date();
+  const curMonth=now.toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+  const defMonth=period||curMonth;
+  const monthOpts=months.map(m=>`<option ${m===defMonth?'selected':''}>${m}</option>`).join('');
+
+  showM(`<div class="md md-lg"><div class="mh"><span>📝</span><span class="mt">Log Monthly Progress</span><button class="mx" onclick="closeM()">×</button></div><div class="mb2">
+    <div class="fg"><label class="fl">Activity *</label><select class="fc" id="pa2" onchange="refreshSubs(this.value)">${aOpts}</select></div>
+    <div class="fg">
+      <label class="fl">Sub-Activity <span>— log here to capture unit-level spend and output</span></label>
+      <select class="fc" id="psa" onchange="updateSpendHint()">${subOpts}</select>
+      <div class="fh" id="sub-hint" style="margin-top:6px"></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label class="fl">Reporting Month *</label><select class="fc" id="pm2">${monthOpts}</select></div>
+      <div class="fg"><label class="fl">Implementation Status *</label><select class="fc" id="pst2"><option value="planned">Planned</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="delayed">Delayed</option><option value="not-started">Not Started</option></select></div>
+    </div>
+    <div class="fg3">
+      <div class="fg"><label class="fl">Units Completed This Month <span id="unit-lbl">(units)</span></label><input type="number" class="fc" id="puc" min="0" placeholder="0" oninput="updateSpendHint()"></div>
+      <div class="fg"><label class="fl">% Complete (cumulative)</label><input type="number" class="fc" id="ppc" min="0" max="100" placeholder="0–100"></div>
+      <div class="fg"><label class="fl">Actual Expenditure (USD) *</label><input type="number" class="fc" id="psp" placeholder="0" oninput="updateSpendHint()"></div>
+    </div>
+    <div class="fg"><label class="fl">Progress Notes *</label><textarea class="fc" id="pno" rows="4" placeholder="What was achieved this month? Challenges? Next steps?"></textarea></div>
+    <div class="fg">
+      <label class="fl">Evidence / Document URL <span>— link to Google Drive photo, report, or supporting doc</span></label>
+      <input type="url" class="fc" id="pev" placeholder="https://drive.google.com/file/...">
+      <div class="fh">Funders access evidence through this link via the shared funder portal.</div>
+    </div>
+  </div><div class="mf"><button class="btn btn-outline" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveProg()">💾 Save Progress</button></div></div>`);
+  if(subId)setTimeout(updateSpendHint,100);
+}
+function refreshSubs(actId){
+  const sel=document.getElementById('psa'); if(!sel)return;
+  const subs=A.data.subActivities.filter(s=>s.activity_id===actId);
+  sel.innerHTML=`<option value="">— Log at activity level —</option>`+subs.map(s=>`<option value="${s.id}">${s.sub_code} · ${s.description} (${s.category})</option>`).join('');
+  updateSpendHint();
+}
+function updateSpendHint(){
+  const subId=document.getElementById('psa')?.value;
+  const spent=parseFloat(document.getElementById('psp')?.value)||0;
+  const unitsEl=document.getElementById('puc');
+  const hint=document.getElementById('sub-hint');
+  const unitLbl=document.getElementById('unit-lbl');
+  if(!hint)return;
+  if(!subId){hint.textContent='';if(unitLbl)unitLbl.textContent='(units)';return;}
+  const s=A.data.subActivities.find(x=>x.id===subId);
+  if(!s){hint.textContent='';return;}
+  if(unitLbl)unitLbl.textContent=`(${s.unit_type})`;
+  const prevSpent=A.data.progress.filter(x=>x.sub_activity_id===subId).reduce((sum,x)=>sum+(x.actual_expenditure||0),0);
+  const prevUnits=A.data.progress.filter(x=>x.sub_activity_id===subId).reduce((sum,x)=>sum+(x.units_completed||0),0);
+  const remBudget=(s.planned_budget||0)-prevSpent;
+  const remUnits=(s.quantity||0)-prevUnits;
+  const color=spent>remBudget?'var(--red)':'var(--green)';
+  hint.innerHTML=`<span class="fm">${s.quantity} ${s.unit_type} @ ${fmtM(s.unit_cost)} = ${fmtM(s.planned_budget)}</span> · Done: ${prevUnits}/${s.quantity} · Budget remaining: <strong style="color:${color}">${fmtM(remBudget)}</strong> · Unit remaining: <strong>${remUnits}</strong>`;
+  // Auto-set % complete
+  const ppcEl=document.getElementById('ppc');
+  const units=parseFloat(unitsEl?.value)||0;
+  if(ppcEl&&s.quantity&&units){
+    const cumUnits=prevUnits+units;
+    ppcEl.value=Math.min(Math.round(cumUnits/s.quantity*100),100);
+  }
+}
+function saveProg(){
+  const actId=document.getElementById('pa2').value;
+  const subId=document.getElementById('psa').value||null;
+  const act=A.data.activities.find(a=>a.id===actId)||{};
+  const entry={id:uid(),activity_id:actId,sub_activity_id:subId,project_id:act.project_id||'',period:document.getElementById('pm2').value,status:document.getElementById('pst2').value,units_completed:parseFloat(document.getElementById('puc').value)||0,percent_complete:parseInt(document.getElementById('ppc').value)||0,actual_expenditure:parseFloat(document.getElementById('psp').value)||0,notes:document.getElementById('pno').value.trim(),evidence_url:document.getElementById('pev').value.trim(),submitted_by:A.session.name,submitted_at:new Date().toISOString()};
+  if(!entry.notes){toast('Progress notes required','er');return;}
+  A.data.progress.push(entry);dbPut('progress',entry);post2sheets('saveProgress',entry);closeM();renderView();toast('Progress logged ✓','ok');
+}
+function delProg(id){if(!confirm('Delete?'))return;A.data.progress=A.data.progress.filter(x=>x.id!==id);dbDel('progress',id);renderView();toast('Deleted','wa');}
+
+/* ════════════════════════════════════════
+   MODAL — USER
+════════════════════════════════════════ */
+function openUserModal(){
+  showM(`<div class="md"><div class="mh"><span>👤</span><span class="mt">Add User</span><button class="mx" onclick="closeM()">×</button></div><div class="mb2">
+    <div class="nb info">ℹ The user signs in with their username and password. Share credentials securely (Signal, in person). Password is hashed before storage — never saved in plain text.</div>
+    <div class="fg"><label class="fl">Full Name *</label><input class="fc" id="un" placeholder="Jane Doe"></div>
+    <div class="fg2">
+      <div class="fg"><label class="fl">Username *</label><input class="fc" id="uun" placeholder="jane.doe" autocomplete="off"><div class="fh">Lowercase, no spaces.</div></div>
+      <div class="fg"><label class="fl">Organization</label><input class="fc" id="uo" placeholder="Eye Media Group"></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label class="fl">Role</label><select class="fc" id="ur"><option value="admin">Admin / M&E Officer</option><option value="reporter">Field Reporter</option><option value="viewer">Viewer (read-only)</option></select></div>
+      <div class="fg">
+        <label class="fl">Password *</label>
+        <div class="pw-wrap"><input type="password" class="fc" id="upw" placeholder="Min. 8 characters" style="padding-right:42px"><button class="pw-toggle" type="button" onclick="const f=document.getElementById('upw');f.type=f.type==='password'?'text':'password'">👁</button></div>
+        <div class="fh">Share this securely with the user.</div>
+      </div>
+    </div>
+  </div><div class="mf"><button class="btn btn-outline" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveUser2()">Add User</button></div></div>`);
+}
+async function saveUser2(){
+  const name = document.getElementById('un').value.trim();
+  const username = document.getElementById('uun').value.trim().toLowerCase().replace(/\s+/g,'.');
+  const org = document.getElementById('uo').value.trim();
+  const role = document.getElementById('ur').value;
+  const password = document.getElementById('upw').value;
+  if(!name||!username||password.length<8){toast('Name, username and password (min 8 chars) required','er');return;}
+  const hash = await sha256(username + ':' + password);
+  const user = {id:uid(), name, username, org, role, password_hash:hash, status:'active', created_at:new Date().toISOString()};
+  A.data.users.push(user); dbPut('users',user); post2sheets('saveUser',user);
+  closeM(); renderView(); toast('User added ✓','ok');
+}
+function delUser(id){if(!confirm('Remove user?'))return;A.data.users=A.data.users.filter(x=>x.id!==id);dbDel('users',id);renderView();toast('Removed','wa');}
+
+/* ════════════════════════════════════════
+   MISC
+════════════════════════════════════════ */
+function ft(q,tid){const r=document.querySelectorAll('#'+tid+' tbody tr');r.forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';});}
+function toggleSB(){document.getElementById('sidebar').classList.toggle('collapsed');document.getElementById('main').classList.toggle('collapsed');}
+
+/* ════════════════════════════════════════
+   BOOT
+════════════════════════════════════════ */
+async function boot(){
+  await initDB();
+  const storedSession=await dbSetting('session');
+  const scriptUrl=await dbSetting('scriptUrl');
+  A.scriptUrl=scriptUrl||'';
+
+  if(storedSession && new Date(storedSession.expires) > new Date()){
+    A.session=storedSession;
+    await launchApp();
+  } else {
+    document.getElementById('login-screen').style.display='flex';
+  }
+}
+
+async function launchApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('user-nm').textContent=A.session.name;
+  document.getElementById('user-rl').textContent=A.session.role;
+  document.getElementById('user-av').textContent=(A.session.name||'U').charAt(0).toUpperCase();
+
+  for(const store of ['projects','outputs','activities','subActivities','progress','users']){
+    const items=await dbGet(store);
+    if(items.length) A.data[store]=items;
+  }
+  if(!A.data.projects.length){
+    A.data=JSON.parse(JSON.stringify(DEMO));
+    await saveAll();
+  }
+  nav('dashboard');
+  if(A.scriptUrl)setTimeout(syncData,1500);else setSS('offline');
+}
+
+boot();
+</script>
+</body>
+</html>
